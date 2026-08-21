@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hedge-lab
+    runtime: node
+    plan: free
+    buildCommand: ''          # nincs build lépés — egyetlen Node-fájl, függőség nélkül
+    startCommand: node server.js
+    healthCheckPath: /api/me  # olcsó: se külső hívás, se szken
+    envVars:
+      # Az értékeket a Render dashboardján add meg, NE ebben a fájlban.
+      # Mind opcionális: hiányukban a demó memóriában tárol és login nélkül fut.
+      - key: SUPA_URL
+        sync: false
+      - key: SUPA_KEY
+        sync: false
+      - key: TG_BOT_TOKEN
+        sync: false
+      - key: TG_BOT_NAME
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true   # a Render generálja; enélkül minden újraindítás kiléptet
