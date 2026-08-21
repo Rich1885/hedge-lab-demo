@@ -1624,7 +1624,14 @@ details.card>.body{padding-top:14px}
 }
 
 /* ── demo-bevezető ── */
-.intro{max-width:1000px;margin:0 0 20px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+.intro{margin:0 0 20px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+/* ── kold-start spinner ── a scan() ~5-9mp-et visz élő 7-venue lekéréssel; ezt
+   semmilyen hosting nem gyorsítja, tehát ahelyett hogy elrejtenénk, megmondjuk. */
+.loadgate{display:flex;align-items:center;gap:14px;padding:12px 4px 14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.loadgate .spin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line2);border-top-color:var(--blue);flex:0 0 auto;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loadgate p{margin:0;font-size:12.5px;line-height:1.55;color:var(--dim)}
+.loadgate b{color:var(--tx)}
 .intro h1{font-size:20px;font-weight:700;letter-spacing:-.2px;margin:0 0 10px;color:var(--tx)}
 .intro p{font-size:13px;line-height:1.65;color:var(--dim);margin:0 0 8px}
 .intro b{color:var(--tx);font-weight:600}
@@ -1724,6 +1731,12 @@ details.card>.body{padding-top:14px}
 <section id="pg-dash">
 <div class="intro compact">
   <a class="back" href="/">&larr; Overview</a>
+  <div class="loadgate" id="loadgate">
+    <div class="spin"></div>
+    <p><b>Waking up.</b> This runs on free serverless hosting, not a dedicated server &mdash;
+    the first request has to fetch live rates from all <b>seven</b> exchanges before the table
+    below has anything to show. A few seconds, not a miracle. Hang on.</p>
+  </div>
   <p>Live scanner across <b>Variational, Ethereal, Nado, Lighter, Lighter&nbsp;on&nbsp;Robinhood&nbsp;Chain,
   Aster</b> and <b>edgeX</b>. Panels below are <b>fully interactive</b> &mdash; state lives in memory
   and resets on restart. No wallet connected, no capital at risk.</p>
@@ -2155,8 +2168,8 @@ async function load(force){
   let ch=""
   if(sm){const dec=sm.price<1?5:2
    ch+='<div class="cfgcard best"><div class="cfghead"><span class="cfgname">'+sm.asset+' same-asset cross</span><span class="big mono g">'+usd(sm.usd_day)+'/day</span><span class="d" style="font-size:11.5px">spread '+pct(Math.abs(sm.diff),1)+'/yr · price $'+sm.price.toFixed(dec)+'</span><span class="badge">ACTIVE</span></div><table><tbody>'
-   +"<tr><td><span class='chip'>"+sm.short_on+"</span></td><td><span class='pill short'>SHORT</span> <b>"+sm.asset+"</b></td><td class='d mono'>"+pct(sm.short_apr,1)+"</td><td class='mono g'>kapod</td></tr>"
-   +"<tr><td><span class='chip'>"+sm.long_on+"</span></td><td><span class='pill long'>LONG</span> <b>"+sm.asset+"</b></td><td class='d mono'>"+pct(sm.long_apr,1)+"</td><td class='mono r'>fizeted</td></tr></tbody></table>"
+   +"<tr><td><span class='chip'>"+sm.short_on+"</span></td><td><span class='pill short'>SHORT</span> <b>"+sm.asset+"</b></td><td class='d mono'>"+pct(sm.short_apr,1)+"</td><td class='mono g'>receive</td></tr>"
+   +"<tr><td><span class='chip'>"+sm.long_on+"</span></td><td><span class='pill long'>LONG</span> <b>"+sm.asset+"</b></td><td class='d mono'>"+pct(sm.long_apr,1)+"</td><td class='mono r'>pay</td></tr></tbody></table>"
    +"<div style='margin-top:8px;font-size:13px'>Size on both venues: <b class='mono'>"+sm.qty+"</b> "+sm.asset+" (~$"+sm.leg_notional.toLocaleString("en-GB")+")"+(sm.qty<sm.min_qty?" <span class='r'>— a Ethereal minimum alatt!</span>":"")+"</div>"
    +"<div style='font-size:13px'>Suggested stops: SHORT leg @ <b class='mono'>"+sm.sl_short.toFixed(dec)+"</b> · LONG leg @ <b class='mono'>"+sm.sl_long.toFixed(dec)+"</b> <span class='d'>(liq. distance "+pct(sm.d_liq,1)+")</span></div></div>"}
   if(d.mode==="pair")for(const n of ["A","B"]){const cc=d.configs[n]
@@ -2376,8 +2389,12 @@ function renderStrat(){
  }).join('')||'<div class="hint">No pair matches the filter.</div>'
 }
 function setMSort(m){mSort=m;for(const x of['spread','tick'])document.getElementById('ms-'+x).classList.toggle('on',x===m);renderMulti()}
+// A kold-start magyarázat csak addig kell, amíg tényleg várni kell rá — az első
+// sikeres szkennelés után eltűnik, a rendes intro-szöveg marad a helyén.
+function hideLoadgate(){const g=document.getElementById('loadgate');if(g)g.style.display='none'}
 function renderMulti(){
  if(!scanData)return
+ hideLoadgate()
  const leg=+document.getElementById('sleg').value||3000
  // Spread szerint = hol a legnagyobb a két venue különbsége (tartós carry).
  // Tick szerint = hol fizet legtöbbet a következő Vari-pillanatkép (rövid, célzott fogás).
