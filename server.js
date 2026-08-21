@@ -2759,7 +2759,7 @@ function diveHtml(d,leg,sr){
        sr.avg7d==null?'not enough measurements yet':sr.avg7d<0?'opposite to the current reading':'the value you can size on')
    +vb('Leg / daily volume',share==null?'—':(share*100).toFixed(share>=0.1?0:1)+'%',share==null?'d':share>0.10?'r':share>0.03?'y':'g',
        'share of the thinner leg 24h volume')
-   +vb('Next Vari tick',t?'$'+t.usd.toFixed(2):'—',t&&t.usd>=20?'g':t&&t.usd>=5?'y':'d',t?'a '+t.side+' oldal kapja · '+t.ivH+'h':'no Variational rate')
+   +vb('Next Vari tick',t?'$'+t.usd.toFixed(2):'—',t&&t.usd>=20?'g':t&&t.usd>=5?'y':'d',t?'the '+t.side+' side receives it · '+t.ivH+'h':'no Variational rate')
    +vb('Round-trip cost','$'+(leg*sr.costRT).toFixed(2),sr.costRT>0?'y':'g','open + close, at this leg size')
    +vb('Break-even',sr.beDays==null?'—':sr.beDays<0.05?'immediately':sr.beDays.toFixed(1)+' days',
        sr.beDays==null?'d':sr.beDays<=1?'g':sr.beDays<=3?'y':'r','funding needed to cover the cost')
@@ -2937,6 +2937,12 @@ async function handler(req, res) {
     }
     else if (url.startsWith('/api/series/')) { json(diveSeries(decodeURIComponent(url.slice(12)).toUpperCase())) }
     else if (url.startsWith('/api/dive/')) {
+      // A dive() a lastVenues globálisból olvassa a hét venue APR-ját (lásd az
+      // "Amit a táblából..." kommentet fentebb) — ezt KIZÁRÓLAG a scan() tölti fel.
+      // Perzisztens szerveren ez sosem volt üres, mert a /api/scan mindig lefutott
+      // előbb. Egy Vercel cold starton viszont a mélyfúrás lehet az ELSŐ kérés a
+      // példányon, és lastVenues nélkül minden venue "not listed"-ként jött vissza.
+      await ensureScan()
       const [path, qs] = url.slice(10).split('?')
       const leg = +new URLSearchParams(qs || '').get('leg') || 3000
       json(await dive(decodeURIComponent(path).toUpperCase().replace(/[^A-Z0-9]/g, ''), leg))
