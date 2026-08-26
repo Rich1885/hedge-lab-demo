@@ -96,6 +96,30 @@ body{margin:0;background:
 .hcarry{text-align:right;min-width:180px}
 .hcarry .l{font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--faint);font-weight:700}
 .hcarry .v{font-size:44px;font-weight:800;letter-spacing:-2px;margin-top:6px;line-height:1;font-family:"Cascadia Mono",Consolas,monospace}
+/* ── KÖR · a nyitott menet kártyája ────────────────────────────────────────
+   Az Opportunity Detail elrendezése: fent az eszköz és a KÉT nagy szám (spread és
+   napi carry — ezekért van a kör egyáltalán nyitva), alatta a két láb SAJÁT
+   kártyán, legalul a kockázati sor. Korábban a két láb egy sorba préselve állt,
+   a spread meg a statisztika-csíkban, egy súlyon a driftel. */
+.hhead{display:flex;align-items:baseline;gap:11px;margin-top:11px;flex-wrap:wrap}
+.hhead .sym{font-size:27px;font-weight:800;letter-spacing:-.7px;line-height:1}
+.hbig{display:flex;gap:44px;margin-top:15px;flex-wrap:wrap}
+.hbig .l{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--faint);font-weight:700;margin-top:6px}
+.hbig .v{font-size:37px;font-weight:800;letter-spacing:-1.7px;line-height:1;font-family:"Cascadia Mono",Consolas,monospace}
+.legs{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:13px;margin-top:20px}
+@media(max-width:780px){.legs{grid-template-columns:1fr;gap:9px}}
+.legc{border:1px solid var(--line2);border-radius:var(--r);padding:14px 16px}
+.legc.s{border-color:#f8717133;background:linear-gradient(180deg,var(--rbg),transparent)}
+.legc.l{border-color:#4ade8033;background:linear-gradient(180deg,var(--gbg),transparent)}
+.legc .side{font-size:9.5px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase}
+.legc.s .side{color:var(--red)} .legc.l .side{color:var(--green)}
+.legc .ven{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;letter-spacing:-.3px;margin-top:7px}
+.legc .ven img{width:20px;height:20px;border-radius:5px}
+.legc dl{display:grid;grid-template-columns:auto auto;gap:7px 12px;margin:13px 0 0;font-size:12px;align-items:baseline}
+.legc dt{color:var(--faint);font-weight:600}
+.legc dd{margin:0;text-align:right;font-family:"Cascadia Mono",Consolas,monospace;font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums}
+.swapo{display:flex;align-items:center;justify-content:center}
+.swapo i{width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:13px;font-style:normal}
 .hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:24px;margin-top:24px;padding-top:18px;border-top:1px solid var(--sep)}
 .hstats .l{font-size:10px;text-transform:uppercase;letter-spacing:1.1px;color:var(--faint);font-weight:700}
 .hstats .v{font-size:19px;font-weight:700;margin-top:8px;letter-spacing:-.3px}
@@ -493,11 +517,54 @@ details.card>.body{padding-top:14px}
   .sfoot{display:none}
   .mainpane{margin-left:0}
 }
+/* ── PAIRS SCANNER ─────────────────────────────────────────────────────────
+   Egy kereszt (Variational ↔ másik venue) teljes képernyős nézete. Mind a hat
+   kereszt UGYANEZT a markupot használja — a payload eltérő mezőneveit (nApr /
+   lApr / pApr / oApr mind ugyanaz a szám) a pairRows() fordítja közös alakra. */
+.crumb{display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap}
+.crumb .lbl{font-size:10.5px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:var(--faint)}
+.crumb .sep{color:var(--faint);opacity:.55}
+.crumb .cur{font-size:14px;font-weight:800;letter-spacing:.3px;color:var(--tx)}
+.vpick{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.vpick button{background:none;border:1px solid var(--line2);border-radius:var(--r-sm);padding:5px 11px;color:var(--dim);font:700 11px/1 'Inter',system-ui,sans-serif;letter-spacing:.4px;cursor:pointer;transition:.13s}
+.vpick button:hover{border-color:var(--blue);color:var(--tx)}
+.vpick button.on{background:var(--bbg);border-color:#a78bfa55;color:var(--blue)}
+.ptool{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+.psearch{background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-sm);padding:7px 12px;color:var(--tx);font:500 12.5px/1 'Inter',system-ui,sans-serif;width:180px}
+.psearch:focus{outline:none;border-color:var(--blue)}
+.psearch::placeholder{color:var(--faint)}
+.ptool .sp{margin-left:auto}
+.kpi .sub{margin-top:3px}
+/* Öt csempe, a fő rácsnál keskenyebb minimummal — a 232px-es alapérték mellett az
+   ötödik külön sorba tört, és egy magában álló csempe úgy néz ki, mintha hiányozna
+   mellőle valami. */
+#pkpis{grid-template-columns:repeat(auto-fit,minmax(176px,1fr))}
+/* ── DASHBOARD · áttekintő ────────────────────────────────────────────────── */
+.sechead{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;flex-wrap:wrap}
+.sechead h3{margin:0;font-size:12px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--tx)}
+.sechead .sh{font-size:11.5px;color:var(--faint);font-weight:500}
+.dgrid{display:grid;gap:12px;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start;margin-bottom:14px}
+@media(max-width:1180px){.dgrid{grid-template-columns:1fr}}
+/* Hőtérkép: a cella a kereszt LEGNAGYOBB funding-különbsége, a SOR felől nézve.
+   Antiszimmetrikus — ugyanaz a szám a tükörcellában ellentétes előjellel, mert
+   ugyanarról az egy párról szól, csak a másik irányból. */
+.heat{border-collapse:separate;border-spacing:2px;width:100%}
+.heat th{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);padding:3px 2px;text-align:center;white-space:nowrap}
+.heat th.rw{text-align:right;padding-right:9px;color:var(--dim);font-size:10px}
+.heat td{text-align:center;padding:8px 5px;border-radius:var(--r-xs);font-family:"Cascadia Mono",Consolas,monospace;font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--tx);white-space:nowrap}
+.heat td.na{color:var(--faint);background:#ffffff05;font-weight:400}
+.heat td.self{background:transparent;color:var(--faint)}
+.heat td.hit{cursor:pointer;outline:1px solid transparent;transition:outline-color .12s}
+.heat td.hit:hover{outline-color:var(--blue)}
+.heatleg{display:flex;align-items:center;gap:9px;margin-top:11px;font-size:10.5px;color:var(--faint)}
+.heatleg .bar{height:7px;flex:1;border-radius:4px;background:linear-gradient(90deg,rgba(248,113,113,.5),rgba(248,113,113,.12),#ffffff08,rgba(74,222,128,.12),rgba(74,222,128,.5))}
+.topv td.pn{text-align:left;font-weight:700}
 </style></head><body>
 <div class="side">
   <div class="sbrand"><span class="live"></span>HEDGE<b>LAB</b></div>
   <nav class="snav">
     <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si">▦</span>Dashboard</button>
+    <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si">⇄</span>Pairs Scanner</button>
     <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si">★</span>Best Pairs</button>
     <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si">◎</span>Tracker</button>
     <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si">◷</span>History</button>
@@ -540,11 +607,30 @@ details.card>.body{padding-top:14px}
   <p class="src">Live market data, 90 s refresh &middot; seeded with 99 hourly snapshots since 16 Aug 2026
   &middot; raw measurements at <code>/api/archive</code></p>
 </div>
+<!-- ══ ÁTTEKINTŐ · a nap állása egy képernyőn ══ -->
+<div id="dashover" style="display:none">
+  <div class="kpis" id="dkpis"></div>
+  <div class="dgrid">
+    <div class="card">
+      <div class="sechead"><h3>Top venue pairs</h3><span class="sh">what each cross is worth right now</span></div>
+      <div class="tscroll"><table class="topv"><thead><tr>
+        <th>Cross</th><th>Opportunities</th><th>Top spread</th><th>$ / day · top</th><th>Aligned</th>
+      </tr></thead><tbody id="topvrows"></tbody></table></div>
+      <div class="hint">Click a row to open that cross in the <b>Pairs Scanner</b>. <b>Aligned</b> counts the opportunities where the price gap pulls the same way as the funding — those are the ones where a narrowing gap pays you on top of the carry.</div>
+    </div>
+    <div class="card">
+      <div class="sechead"><h3>Heatmap · best spread</h3><span class="sh">short the row, long the column</span></div>
+      <div class="tscroll"><table class="heat" id="heat"></table></div>
+      <div class="heatleg"><span>row pays less</span><span class="bar"></span><span>row pays more</span></div>
+      <div class="hint">Each cell is the single largest funding difference that cross offers, seen from the row venue. The mirror cell is the same pair from the other side, hence the opposite sign. Hover for the asset; click a Variational cross to open it.</div>
+    </div>
+  </div>
+</div>
 <div class="card" id="scancard" style="display:none">
   <div id="scantab-multi">
     <h2>🌐 Multi-venue scanner
     <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0">
-    Leg ($): <input id="sleg" type="number" value="3000" step="100" min="50" style="width:80px;padding:5px 9px" oninput="saveLeg(this);renderMulti()">
+    Leg ($): <input id="sleg" type="number" value="3000" step="100" min="50" style="width:80px;padding:5px 9px" oninput="saveLeg(this);renderMulti();renderDash()">
     &nbsp;<button class="filt" id="eg-m" onclick="toggleEgyirM()" title="Only pairs where funding has you short the MORE EXPENSIVE leg — a narrowing gap then pays you too.">✓ Aligned</button>
     &nbsp;Filter:
     <button class="filt on" id="fm-all" onclick="setCatM('all')">All</button>
@@ -575,6 +661,35 @@ details.card>.body{padding-top:14px}
 </div>
 </section>
 
+<!-- ══ PAIRS SCANNER · egy kereszt teljes nézete ══ -->
+<section id="pg-pairs" style="display:none">
+  <div class="crumb">
+    <span class="lbl">Pairs Scanner</span><span class="sep">›</span>
+    <span class="cur" id="pcrumb">Variational ↔ Aster</span>
+    <span class="vpick" id="pvpick"></span>
+  </div>
+  <div class="kpis" id="pkpis"></div>
+  <div class="card">
+    <div class="ptool">
+      <input class="psearch" id="pq" type="search" placeholder="🔍  Search asset…" oninput="pairSearch(this.value)" autocomplete="off">
+      <button class="filt on" id="pf-all"   onclick="setPairCat('all')">All</button>
+      <button class="filt"    id="pf-RWA"   onclick="setPairCat('RWA')">RWA</button>
+      <button class="filt"    id="pf-alt"   onclick="setPairCat('alt')">Alt</button>
+      <button class="filt"    id="pf-major" onclick="setPairCat('major')">Major</button>
+      <button class="filt" id="eg-p" onclick="toggleEgyirP()" title="Only pairs where funding has you short the MORE EXPENSIVE leg — a narrowing gap then pays you too.">✓ Aligned</button>
+      <span class="sp"></span>
+      <span class="t-meta">Leg ($):</span>
+      <input id="pleg" type="number" value="3000" step="100" min="50" style="width:82px;padding:6px 9px" oninput="saveLeg(this);renderPairs()">
+      <button class="refresh" onclick="loadScan()">⟳</button>
+    </div>
+    <div class="tscroll"><table><thead><tr>
+      <th>Asset</th><th>Type</th><!--VTH:Vari:Vari--><th class="vh" id="pvth">—</th>
+      <th>Spread</th><th>Gap</th><th>Direction</th><th>$ / day</th><th>Leverage</th><th>7d spr</th><th>Verdict</th>
+    </tr></thead><tbody id="prows"></tbody></table></div>
+    <div class="hint">One cross at a time, every asset both venues list. <b>Spread</b> is the funding difference, with the Variational tick below it — that tick is a snapshot, so being in position at the boundary earns the whole interval. <b>Gap</b> is the <i>price</i> difference: its sign tells you whether the gap pulls with the funding (positive = you short the more expensive leg) and the dollar figure below is what a full close would move. <b>Verdict</b> reads the pair's own 7-day history, not the current tick. Click any row for the deep dive.</div>
+  </div>
+</section>
+
 <!-- ══ BEST PAIRS · ranked cards ══ -->
 <section id="pg-strat" style="display:none">
 <div class="card">
@@ -602,17 +717,11 @@ details.card>.body{padding-top:14px}
      nyelvű teendő. A RÉS itt jelenik meg először a főképernyőn — eddig csak a
      szkenner-táblán volt, pedig 2026-08-10/11-en ez döntötte el a körök nagy részét. -->
 <div class="hero" id="hero" style="display:none">
-  <div class="hrow">
-    <div class="hmain">
-      <div class="hbadge"><span class="dot" id="h_dot"></span><span id="h_state">—</span></div>
-      <div class="hdir" id="h_dir">—</div>
-      <div class="hsub" id="h_sub"></div>
-    </div>
-    <div class="hcarry">
-      <div class="l">Net funding</div>
-      <div class="v mono" id="h_carry">—</div>
-    </div>
-  </div>
+  <div class="hbadge"><span class="dot" id="h_dot"></span><span id="h_state">—</span></div>
+  <div class="hhead" id="h_head"></div>
+  <div class="hbig" id="h_big"></div>
+  <div class="hsub" id="h_sub"></div>
+  <div class="legs" id="h_legs"></div>
   <div class="hstats" id="h_stats"></div>
   <div class="hnoterow"><div class="hnote" id="h_note"></div><div id="btns"></div></div>
 </div>
@@ -1248,13 +1357,15 @@ let curScanTab='multi'
 let curPage='dash'
 function showPage(p){
   curPage=p
-  for(const x of ['dash','strat','track','hist']){
+  for(const x of ['dash','pairs','strat','track','hist']){
     document.getElementById('pg-'+x).style.display=(x===p)?'block':'none'
     document.getElementById('nav-'+x).classList.toggle('on',x===p)
   }
   window.scrollTo(0,0)
   if(p==='hist'){renderNaploGate();loadNaplo()}
   if(p==='strat')renderStrat()
+  if(p==='pairs')renderPairs()
+  if(p==='dash')renderDash()
 }
 // A belső venue-név a VKEY/lastVenues kulcsa (RhLighter), a kiirt név viszont az,
 // amit a beállítások legördülőjében is látsz (Lighter-RH) — különben kétféleképpen
@@ -1315,6 +1426,166 @@ function renderPhx(){
 // egymás másolata lett; az Aster és az edgeX nem másolja őket negyedszer-ötödször.
 // A backend buildVariCross-a semleges mezőneveket ad (vApr/oApr, vVol/oVol), ezért
 // ugyanez a kód szolgálja ki mindkét fület — csak a cfg más.
+// ── DASHBOARD · áttekintő ───────────────────────────────────────────────────
+// Mi számít "lehetőségnek"? NEM tetszőleges küszöb: a napló szerint a szűk-spreades
+// körök rendre elkoptak a venue-súrlódáson (5. kör −$5, 4. kör −$2,6, mindkettő
+// 0,5-1,7%-os spreaden), amiből az éles szabály lett: sub-10% spreadnél nem nyitunk.
+// Ehhez jön a likviditás: ha valamelyik láb vékony, a rés viszi el, amit a funding hoz.
+const OPP_MIN=0.10
+const isOpp=(r)=>!r.thin&&Math.abs(r.pair?r.pair.diff:r.diff)>=OPP_MIN
+// A hőtérkép a rows[].aprs-ből épül, mert ott EGYSZERRE ott van mind a hét venue
+// rátája szimbólumonként — a hat kereszt-lista csak a Vari-párokat ismeri.
+const HEATV=[['Vari','Vari'],['Nado','Nado'],['Lighter','Lighter'],['RhLighter','LGHT-RH'],['Aster','Aster'],['EdgeX','edgeX'],['Ethereal','Ethereal']]
+// A Vari-keresztekhez tartozó fül, hogy a cellából át lehessen ugrani a szkennerre.
+const HEATJUMP={Aster:'astervari',EdgeX:'edgexvari',RhLighter:'rhlvari',Lighter:'comp',Nado:'nadovari'}
+function heatStyle(v){
+ if(v==null)return ''
+ const a=Math.min(1,Math.abs(v)/5)          // 500%-nál telít, mint a mockup skálája
+ return 'background:rgba('+(v>=0?'74,222,128':'248,113,113')+','+(0.07+a*0.40).toFixed(3)+')'
+}
+function jumpCross(k){setPairVenue(k);showPage('pairs')}
+function renderDash(){
+ const kp=document.getElementById('dkpis');if(!kp||!scanData)return
+ document.getElementById('dashover').style.display=''
+ const leg=+((document.getElementById('sleg')||{}).value)||3000
+ const opps=(scanData.rows||[]).filter(isOpp)      // a rows spread szerint rendezve jön
+ const best=opps[0]||null
+ const atlag=opps.length?opps.reduce((s,r)=>s+Math.abs(r.pair.diff),0)/opps.length:null
+ // A napi $ szándékosan az ÖT legjobb összege, nem mind a ~700-é: öt kereszt öt lába
+ // olyan kosár, amit tényleg fel lehet venni — a teljes összeg csak nagy szám lenne.
+ const top5=opps.slice(0,5).reduce((s,r)=>s+leg*Math.abs(r.pair.diff)/365,0)
+ kp.innerHTML=[
+  ['Top opportunity',best?scP(best.pair.diff):'—',best?best.sym+' · '+vNev(best.pair.short)+' ↔ '+vNev(best.pair.long):'nothing over '+scP(OPP_MIN,0)],
+  ['Opportunities',String(opps.length),'≥'+scP(OPP_MIN,0)+' spread, both legs liquid'],
+  ['Avg spread',atlag==null?'—':scP(atlag),'across those '+opps.length],
+  ['$ / day · best 5','$'+top5.toFixed(2),'at a $'+leg.toLocaleString('en-GB')+' leg each'],
+ ].map(([l,v,s])=>'<div class="kpi"><div class="t-label">'+l+'</div><div class="t-data" style="font-size:25px;margin-top:6px">'+v+'</div><div class="t-meta sub">'+s+'</div></div>').join('')
+ // ── keresztek rangsora ──
+ const sorok=PAIRVENUES.map(def=>{
+  const rows=crossRows(def),o=rows.filter(isOpp)
+  const b=o.reduce((a,c)=>(!a||Math.abs(c.diff)>Math.abs(a.diff))?c:a,null)
+  return {def,n:o.length,best:b,egyir:o.filter(r=>r.aligned===true).length,
+          usd:b?leg*Math.abs(b.diff)/365:0}
+ }).sort((a,b)=>b.usd-a.usd)
+ document.getElementById('topvrows').innerHTML=sorok.map(s=>
+  '<tr style="cursor:pointer" onclick="jumpCross(\''+s.def.k+'\')">'
+  +'<td class="pn">Vari ↔ '+s.def.nev+'</td>'
+  +'<td class="mono '+(s.n?'':'d')+'">'+s.n+'</td>'
+  +'<td class="mono big '+(s.best&&Math.abs(s.best.diff)>=0.3?'g':s.best?'y':'d')+'">'+(s.best?scP(s.best.diff):'—')
+   +(s.best?'<br><span class="d" style="font-size:10px">'+s.best.sym+'</span>':'')+'</td>'
+  +'<td class="mono g">'+(s.best?'$'+s.usd.toFixed(2):'—')+'</td>'
+  +'<td class="mono '+(s.egyir?'g':'d')+'">'+(s.n?s.egyir+' / '+s.n:'—')+'</td></tr>').join('')
+ // ── hőtérkép ──
+ // Keresztenként EGY pár: a legnagyobb abszolút különbségű. A tükörcella ugyanaz
+ // ellentétes előjellel, ezért elég a felső háromszöget kiszámolni.
+ // Csak az a venue kerül a mátrixba, ami MOST ad rátát. Nem kozmetika: 2026-08-26-án
+ // az Ethereal mind a 18 termékét DELISTED-re tette 0 volumennel, és egy végig üres
+ // sor+oszlop úgy néz ki, mintha a tábla lenne hibás. Ha visszatér, magától megjelenik.
+ const HV=HEATV.filter(([k])=>(scanData.rows||[]).some(r=>r.aprs&&r.aprs[k]!=null))
+ const M={}
+ for(const [a] of HV){M[a]={}}
+ for(let i=0;i<HV.length;i++)for(let k=i+1;k<HV.length;k++){
+  const A=HV[i][0],B=HV[k][0];let bestD=null,bestS=null
+  for(const r of (scanData.rows||[])){
+   const x=r.aprs&&r.aprs[A],y=r.aprs&&r.aprs[B]
+   if(x==null||y==null)continue
+   const d=x-y;if(bestD==null||Math.abs(d)>Math.abs(bestD)){bestD=d;bestS=r.sym}
+  }
+  M[A][B]=bestD==null?null:{d:bestD,sym:bestS}
+  M[B][A]=bestD==null?null:{d:-bestD,sym:bestS}
+ }
+ const fej='<tr><th class="rw"></th>'+HV.map(([,l])=>'<th>'+l+'</th>').join('')+'</tr>'
+ const test=HV.map(([a,la])=>'<tr><th class="rw">'+la+'</th>'+HV.map(([b])=>{
+  if(a===b)return '<td class="self">·</td>'
+  const c=M[a][b]
+  if(!c)return '<td class="na" title="No asset listed on both">—</td>'
+  const ug=(a==='Vari'&&HEATJUMP[b])?HEATJUMP[b]:(b==='Vari'&&HEATJUMP[a])?HEATJUMP[a]:null
+  return '<td class="'+(ug?'hit':'')+'" style="'+heatStyle(c.d)+'"'
+   +(ug?' onclick="jumpCross(\''+ug+'\')"':'')
+   +' title="'+c.sym+' — short '+vNev(a)+' / long '+vNev(b)+' at '+scP(c.d)+(ug?' · click to open the cross':'')+'">'
+   +scP(c.d,0)+'</td>'
+ }).join('')+'</tr>').join('')
+ document.getElementById('heat').innerHTML='<thead>'+fej+'</thead><tbody>'+test+'</tbody>'
+}
+
+// ── PAIRS SCANNER ───────────────────────────────────────────────────────────
+// A hat Vari-kereszt payload-alakja NEM egységes: ugyanaz a szám hol nApr, hol
+// lApr / pApr / oApr néven jön, a Vari+Phoenixnél pedig a "volumen" valójában OI.
+// Egy helyen fordítjuk közös alakra, hogy a tábla egyetlen renderelőt kapjon —
+// különben minden új kereszt egy újabb, majdnem-azonos render-függvényt szülne
+// (a régi felületen ebből lett hat).
+const PAIRVENUES=[
+ {k:'astervari',nev:'Aster',     logo:'Aster',    f:'oApr',v:'oVol'},
+ {k:'edgexvari',nev:'edgeX',     logo:'EdgeX',    f:'oApr',v:'oVol'},
+ {k:'rhlvari',  nev:'Lighter-RH',logo:'RhLighter',f:'oApr',v:'oVol'},
+ {k:'comp',     nev:'Lighter',   logo:'Lighter',  f:'lApr',v:'lVol'},
+ {k:'nadovari', nev:'Nado',      logo:'Nado',     f:'nApr',v:'nVol'},
+ {k:'phxvari',  nev:'Phoenix',   logo:'Phoenix',  f:'pApr',v:'pOi'},
+]
+let pairVenue='astervari',pairCat='all',pairQ='',csakEgyirP=false
+try{const s=localStorage.getItem('dn_pairvenue');if(s&&PAIRVENUES.some(x=>x.k===s))pairVenue=s}catch{}
+const pairDef=()=>PAIRVENUES.find(x=>x.k===pairVenue)||PAIRVENUES[0]
+function crossRows(def){
+ const src=(scanData&&scanData[def.k])||[]
+ return src.map(r=>({...r,oApr:r[def.f]??null,oVol:r[def.v]??null}))
+}
+function pairRows(){return crossRows(pairDef())}
+function setPairVenue(k){pairVenue=k;try{localStorage.setItem('dn_pairvenue',k)}catch{};renderPairs()}
+function setPairCat(c){pairCat=c;renderPairs()}
+function pairSearch(v){pairQ=(v||'').trim().toUpperCase();renderPairs()}
+function toggleEgyirP(){csakEgyirP=!csakEgyirP;renderPairs()}
+function renderPairs(){
+ const tb=document.getElementById('prows');if(!tb)return
+ const def=pairDef()
+ document.getElementById('pcrumb').textContent='Variational ↔ '+def.nev
+ document.getElementById('pvpick').innerHTML=PAIRVENUES.map(x=>
+  '<button class="'+(x.k===pairVenue?'on':'')+'" onclick="setPairVenue(\''+x.k+'\')">'+x.nev+'</button>').join('')
+ // A venue-oszlop fejléce a kiválasztott kereszttel változik, ezért — a többi
+ // fejléccel ellentétben — nem szerver-oldali <!--VTH--> helyőrző, hanem itt épül.
+ const lg=(typeof VLOGO!=='undefined'&&VLOGO[def.logo])?'<img class="vlogo" src="'+VLOGO[def.logo]+'" alt="">':''
+ document.getElementById('pvth').innerHTML='<span class="vhw">'+lg+'<span>'+def.nev+'</span></span>'
+ for(const x of ['all','RWA','alt','major']){const b=document.getElementById('pf-'+x);if(b)b.classList.toggle('on',x===pairCat)}
+ const egb=document.getElementById('eg-p');if(egb)egb.classList.toggle('on',csakEgyirP)
+ const kp=document.getElementById('pkpis')
+ if(!scanData){tb.innerHTML='<tr><td colspan="11" class="d" style="padding:28px;text-align:center">loading the seven venues…</td></tr>';return}
+ const leg=+((document.getElementById('pleg')||{}).value)||3000
+ let rows=pairRows()
+ if(pairCat!=='all')rows=rows.filter(r=>r.cat===pairCat)
+ if(csakEgyirP)rows=rows.filter(r=>r.aligned===true)
+ if(pairQ)rows=rows.filter(r=>r.sym.indexOf(pairQ)>=0)
+ // A KPI-k a SZŰRT listáról szólnak — amit a fejléc mond, az a tábla alatta.
+ // A "$/nap" szándékosan a LEGJOBB páré, nem az összes összege: 350 pár napi
+ // hozamát összeadni olyan számot ad, amit soha senki nem tud egyszerre felvenni.
+ const best=rows.reduce((a,b)=>(!a||Math.abs(b.diff)>Math.abs(a.diff))?b:a,null)
+ const atlag=rows.length?rows.reduce((s,r)=>s+Math.abs(r.diff),0)/rows.length:null
+ if(kp)kp.innerHTML=[
+  ['Top spread',best?scP(best.diff):'—',best?best.sym:'no pair'],
+  ['$ / day · top',best?'$'+(leg*Math.abs(best.diff)/365).toFixed(2):'—','at a $'+leg.toLocaleString('en-GB')+' leg'],
+  ['Opportunities',String(rows.length),(pairCat==='all'&&!pairQ&&!csakEgyirP)?'both venues list it':'after filters'],
+  ['Avg spread',atlag==null?'—':scP(atlag),'mean of the '+rows.length+' rows'],
+  // A szken órájából az IDŐ, nem a relatív kor: a csempe csak 90 mp-enként (a
+  // következő szkennél) rajzolódik újra, tehát egy "12s ago" felirat percekig
+  // hazudna. Egy fix időbélyeg akkor is igaz marad, ha megáll a frissítés.
+  ['Updated',String(scanData.time||'').split(' ').pop()||'—',(scanData.histHours||0)+'h of history'],
+ ].map(([l,v,s])=>'<div class="kpi"><div class="t-label">'+l+'</div><div class="t-data" style="font-size:23px;margin-top:6px">'+v+'</div><div class="t-meta sub">'+s+'</div></div>').join('')
+ if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="d" style="padding:28px;text-align:center">No pair matches the filters.</td></tr>';return}
+ tb.innerHTML=rows.slice(0,80).map(r=>{
+  const usdDay=leg*Math.abs(r.diff)/365,t=tickUsdOf(r,leg)
+  return '<tr style="cursor:pointer" onclick="diveInto(\''+r.sym+'\')">'
+  +'<td class="big">'+r.sym+(r.thin?'<span class="thin">⚠</span>':'')+'</td>'
+  +'<td style="text-align:left">'+catBadge(r.cat)+'</td>'
+  +'<td class="mono '+scCls(r.vApr)+'">'+scP(r.vApr)+'</td>'
+  +'<td class="mono '+scCls(r.oApr)+'">'+scP(r.oApr)+'</td>'
+  +'<td class="mono big '+(Math.abs(r.diff)>=0.3?'g':Math.abs(r.diff)>=0.1?'y':'d')+'">'+scP(r.diff)
+   +(t?'<br><span class="d" style="font-size:10px">$'+t.usd.toFixed(2)+' / '+t.ivH+'h tick</span>':'')+'</td>'
+  +gapCell(r,leg)
+  +'<td style="text-align:left"><span class="pillS">S</span> '+vNev(r.pair.short)+' → <span class="pillL">L</span> '+vNev(r.pair.long)+'</td>'
+  +'<td class="mono g">$'+usdDay.toFixed(2)+'</td>'
+  +levCell(r,leg)
+  +'<td class="mono '+(r.avg7d==null?'d':'')+'">'+scP(r.avg7d)+'</td>'
+  +'<td>'+scAge(r)+'</td></tr>'
+ }).join('')
+}
 function renderVariCross(cfg){
  if(!document.getElementById(cfg.bodyId))return
  const rowsAll=scanData&&scanData[cfg.kulcs]
@@ -1350,7 +1621,7 @@ async function loadScan(){
   const d=await fetch('/api/scan').then(r=>r.json())
   scanData=d
   document.getElementById('scancard').style.display=""
-  renderMulti();renderStrat()
+  renderDash();renderMulti();renderStrat();renderPairs()
  }catch(e){}
 }
 // Folyó mérések: mire várunk és mikortól válaszolható. Azért a dashboardon van és nem
@@ -1405,7 +1676,10 @@ async function diveInto(sym){
 // A mélyfúrás a jelenleg NYITOTT fül lábméretével számol — különben a becsapódás és a
 // tick dollárértéke nem arra a méretre vonatkozna, amivel ténylegesen nyitni készülsz.
 function diveLeg(){
- const id=curScanTab==='comp'?'clegc':curScanTab==='phx'?'clegp':'sleg'
+ // A Pairs Scannernek saját lábmezője van, és onnan is nyílik mélyfúrás — ha itt
+ // a dashboard sleg-jét olvasnánk, a becsapódás és a tick $ nem arra a méretre
+ // vonatkozna, amit a táblában épp beállítottál.
+ const id=curPage==='pairs'?'pleg':curScanTab==='comp'?'clegc':curScanTab==='phx'?'clegp':'sleg'
  const el=document.getElementById(id)
  return (el&&+el.value>0)?+el.value:3000
 }
@@ -1449,17 +1723,36 @@ function renderHero(d,sm,st){
  const [cls,ikon,szoveg]=heroNote(sm,tick)
  el.className='hero '+cls
  const el2=(id,html)=>{const x=document.getElementById(id);if(x)x.innerHTML=html}
+ const big=(l,v,c)=>'<div><div class="v '+(c||'')+'">'+v+'</div><div class="l">'+l+'</div></div>'
  if(sm){
   el2('h_state',sm.open?'LIVE · '+sm.asset:'ARMED · '+sm.asset)
-  // A hero sávja: két láb, mindkettőnél a saját rátája. A spread ezek különbsége,
-  // és lentebb külön ki is van írva — itt a nyers számok a fontosak.
+  const sor=((scanData&&scanData.rows)||[]).find(r=>r.sym===sm.asset)
+  el2('h_head','<span class="sym">'+sm.asset+'</span>'+(sor?catBadge(sor.cat):''))
+  // A két nagy szám: a spread az OK, amiért a kör nyitva van, a napi carry az, amit
+  // hoz. Minden más alattuk magyaráz — korábban a spread a statisztika-csíkban ült,
+  // egy súlyon a driftel, és a szem nem tudta, hova nézzen először.
+  el2('h_big',big('Total spread',pct(Math.abs(sm.diff),1),Math.abs(sm.diff)>=0.3?'g':Math.abs(sm.diff)>=0.1?'y':'')
+   +big('Net funding','<span class="'+(sm.usd_day>=0?'g':'r')+'">'+usd(sm.usd_day)+'</span><span style="font-size:15px;color:var(--dim);font-weight:600"> /day</span>'))
+  // A két láb saját kártyán. Az adat mind a payload tick-blokkjából jön — ugyanaz,
+  // amiből a lenti visszaszámláló-panel dolgozik, tehát nincs második igazság.
   const sVen=sm.open?sm.opened_short_on:sm.short_on
   const lVen=sm.open?(sm.opened_short_on===sm.va_name?sm.vb_name:sm.va_name):sm.long_on
-  const hleg=(cls,ven,apr,lbl)=>'<div class="hleg '+cls+'"><div><div class="hv">'+(VLOGO[VKEY(ven)]?'<img src="'+VLOGO[VKEY(ven)]+'" alt="">':'')+ven+'</div>'
-    +'<div class="t-label">'+lbl+'</div></div><div class="hr">'+pct(apr,1)+'</div></div>'
-  el2('h_dir',hleg('s',sVen,sm.short_apr,'short')+'<div class="harrow"></div>'+hleg('l',lVen,sm.long_apr,'long'))
+  const legOf=(ven)=>((d.tick&&d.tick.legs)||[]).find(L=>L.venue===ven)||null
+  const legCard=(kind,ven,apr)=>{
+   const L=legOf(ven),ivH=L&&L.ivS?Math.round(L.ivS/3600):null
+   // Kapja vagy fizeti: pozitív ráta mellett a short kapja, negatív mellett a long.
+   const recv=(L&&L.side&&L.apr!=null)?((L.side==='SHORT')===(L.apr>0)):null
+   const s=[['Funding','<span class="'+(apr>=0?'g':'r')+'">'+pct(apr,2)+'</span>']]
+   if(L&&L.tick_usd!=null)s.push(['Next tick','<span class="'+(recv==null?'d':recv?'g':'r')+'">'+(recv==null?'':recv?'+':'−')+'$'+L.tick_usd.toFixed(2)+'</span> <span class="d" style="font-weight:500">/'+ivH+'h</span>'])
+   else if(ivH)s.push(['Tick','<span class="d">'+ivH+'h</span>'])
+   if(L&&L.acc_usd!=null&&L.acc_ticks>0)s.push(['Earned so far','<span class="'+(L.acc_usd>=0?'g':'r')+'">'+usd(L.acc_usd)+'</span> <span class="d" style="font-weight:500">'+L.acc_ticks+'×</span>'])
+   if(L&&L.notional!=null)s.push(['Leg size','$'+Math.round(L.notional).toLocaleString('en-GB')])
+   const lg=VLOGO[VKEY(ven)]?'<img src="'+VLOGO[VKEY(ven)]+'" alt="">':''
+   return '<div class="legc '+kind+'"><div class="side">'+(kind==='s'?'Short':'Long')+'</div>'
+    +'<div class="ven">'+lg+ven+'</div><dl>'+s.map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('')+'</dl></div>'
+  }
+  el2('h_legs',legCard('s',sVen,sm.short_apr)+'<div class="swapo"><i>⇄</i></div>'+legCard('l',lVen,sm.long_apr))
   el2('h_sub','Same-asset · '+(sm.open&&sm.entry?'entry <span class="mono">$'+(+sm.entry).toFixed(sm.entry<1?5:2)+'</span> · ':'')+'leg <span class="mono">$'+sm.leg_notional.toLocaleString('en-GB')+'</span>')
-  el2('h_carry','<span class="'+(sm.usd_day>=0?'g':'r')+'">'+usd(sm.usd_day)+'</span><span style="font-size:14px;color:var(--dim);font-weight:600"> /day</span>')
   const bazis=(sm.gap!=null&&sm.entry_gap!=null)?sm.leg_notional*((sm.gap-sm.entry_gap)*((sm.opened_short_on!==sm.va_name)?1:-1)):null
   const box=(l,v,s,c,extra)=>'<div><div class="l">'+l+'</div><div class="v mono '+(c||'')+'">'+v+'</div>'+(extra||'')+(s?'<div class="s">'+s+'</div>':'')+'</div>'
   // A drift-sáv visszakerült: a puszta százalék nem mutatja, hol tartasz a
@@ -1470,18 +1763,23 @@ function renderHero(d,sm,st){
    driftBar='<div class="hbar"><i style="width:'+Math.max(u,2)+'%;background:'+col+'"></i>'
     +'<span style="left:50%"></span><span style="left:75%"></span></div>'
   }
+  // A kockázati sor. A "Next tick" innen a lábkártyákra költözött (ott labánként
+  // igaz, itt csak az egyiket tudta mutatni), a helyére a BÁZIS került: az a szám,
+  // ami eldönti, hogy a gyűlő funding tényleg a zsebedben marad-e. A funding-
+  // akkumulátor mindig felfelé megy; ez az, ami lefelé húzhat.
+  const gapd=(sm.gap!=null&&sm.entry_gap!=null)?sm.gap-sm.entry_gap:null
   document.getElementById('h_stats').innerHTML=
-   // a spread ALATT a két nyers ráta: a spread épp ezek különbsége, ott a helyük
-   box('Spread',pct(Math.abs(sm.diff),1),pct(sm.short_apr,1)+' vs '+pct(sm.long_apr,1),Math.abs(sm.diff)>=0.3?'g':Math.abs(sm.diff)>=0.1?'y':'d')
-   +box('Gap',sm.gap==null?'—':(sm.gap>0?'+':'−')+pct(Math.abs(sm.gap),2),bazis!=null?usd(bazis)+' on the position':'price gap',bazis==null?'':bazis>=0?'g':bazis<=-20?'r':'y')
+   box('Gap',sm.gap==null?'—':(sm.gap>0?'+':'−')+pct(Math.abs(sm.gap),2),sm.gap==null?'no price on both legs':(sm.gap>0?'you short the pricier leg':'you short the cheaper leg'),sm.gap==null?'d':sm.gap>0?'g':'r')
+   +box('Basis since entry',bazis!=null?usd(bazis):'—',gapd!=null?'gap moved '+(gapd>=0?'+':'−')+pct(Math.abs(gapd),3):'recorded when you open',bazis==null?'d':bazis>=0?'g':bazis<=-20?'r':'y')
    +box('Drift',sm.drift!=null?pct(sm.drift):'—',sm.used!=null?'liq. distance '+Math.round(sm.used*100)+'%':'after you record an entry',sm.used==null?'d':sm.used<0.5?'g':sm.used<0.75?'y':'r',driftBar)
-   +box('Next tick',tick?usd(tick.usd):'—',tick?tick.venue+' · '+tick.mins+' perc':'—',(!tick||tick.usd<0.5)?'d':tick.kapom?'g':'r')
+   +box('Stops',sm.sl_short!=null?'$'+(+sm.sl_short).toFixed(sm.sl_short<1?5:2):'—',sm.sl_long!=null?'long leg $'+(+sm.sl_long).toFixed(sm.sl_long<1?5:2):'—','d')
  }else{
   const shown=st.active_config&&st.active_config!=='SAME'?st.active_config:d.best,c=d.configs[shown]
   el2('h_state',st.active_config&&st.active_config!=='SAME'?'LIVE · ['+st.active_config+']':'ARMED')
-  el2('h_dir','['+shown+'] konfig')
-  el2('h_sub','pair mode · BTC + ETH cross')
-  el2('h_carry','<span class="'+(c.usd_day>=0?'g':'r')+'">'+usd(c.usd_day)+'</span><span style="font-size:14px;color:var(--dim);font-weight:600"> /day</span>')
+  el2('h_head','<span class="sym">['+shown+']</span><span class="chip">pair mode</span>')
+  el2('h_big',big('Net funding','<span class="'+(c.usd_day>=0?'g':'r')+'">'+usd(c.usd_day)+'</span><span style="font-size:15px;color:var(--dim);font-weight:600"> /day</span>'))
+  el2('h_sub','BTC + ETH cross across both venues')
+  el2('h_legs','')
   document.getElementById('h_stats').innerHTML=''
  }
  document.getElementById('h_note').innerHTML='<span>'+ikon+'</span><span>'+szoveg+'</span>'
@@ -1662,7 +1960,7 @@ function diveHtml(d,leg,sr){
 // Ezért localStorage-ban tartjuk: túléli az újratöltést, a fülváltást és a böngészőt is.
 function saveLeg(el){try{localStorage.setItem('dn_leg_'+el.id,el.value)}catch{}}
 function restoreLegs(){
-  for(const id of ['sleg','clegc','clegp','clega','clege','clegr']){
+  for(const id of ['sleg','pleg','clegc','clegp','clega','clege','clegr']){
     const el=document.getElementById(id);if(!el)continue
     let v=null;try{v=localStorage.getItem('dn_leg_'+id)}catch{}
     if(v!=null&&v!==''&&+v>0)el.value=v
