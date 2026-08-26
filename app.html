@@ -1074,6 +1074,7 @@ async function load(force){
   document.getElementById("t_btc").innerHTML="<span class='sym'>BTC-USD</span><span class='mono'>$"+Math.round(d.sizing.btc_px).toLocaleString("en-GB")+"</span>"
   document.getElementById("t_eth").innerHTML="<span class='sym'>ETH-USD</span><span class='mono'>$"+d.sizing.eth_px.toFixed(2)+"</span>"
   const st=d.state
+  VLIVE=d.venues||{}
   // a nyitott/beállított pár görbéi — innen hívjuk, mert csak ez a payload tudja, mi az
   renderMeasBar(d)
   document.getElementById("t_pos").innerHTML="<span class='sym'>POSITION</span><span class='mono "+(st.active_config?"g":"y")+"'>"+(st.active_config?"["+st.active_config+"] LIVE":"nincs")+"</span>"
@@ -1083,6 +1084,11 @@ async function load(force){
   if(d.alerts.length===0&&hasOpen)ah='<div class="alert ok">✓ '+(isSame?("The "+d.same.asset+" cross is live (SHORT "+d.same.opened_short_on+"); drift and spread are fine. Nothing to do."):("A nyitott konfigod ["+st.active_config+"] az optimal, a divergencia rendben. Nincs teendő."))+'</div>'
   for(const a of d.alerts)ah+='<div class="alert '+a.level+'">⚠ '+a.text+'</div>'
   if(!hasOpen)ah+='<div class="alert yellow">No position recorded — press Open position once both legs are filled.</div>'
+  // Halott venue a beállított kereszten. A szkennert ez nem érinti (ott a volumen-
+  // szűrő kiveszi), de a panel eddig úgy mutatta a lábat, mintha nyitható lenne.
+  const parVenues=(d.mode==="pair")?["Variational","Ethereal"]:[st.same_va||"Variational",st.same_vb||"Aster"]
+  const holt=parVenues.filter(v=>!venueLive(v))
+  if(holt.length)ah+='<div class="alert red">⚠ <b>'+holt.join(" and ")+'</b> '+(holt.length>1?"list":"lists")+' nothing tradeable right now — every product delisted or at zero volume. This cross cannot be opened; pick another venue in Configuration.</div>'
   document.getElementById("alerts").innerHTML=ah
   renderLive(d.live)
   const key=JSON.stringify(d.alerts.map(a=>a.text))
@@ -1128,7 +1134,11 @@ async function load(force){
   // Korabban mindketto ott allt egyszerre, egyforma sullyal.
   const nyitG='<button class="primary" onclick="act(\'nyit\')">&#9656; Open position'+(sm?' ('+sm.asset+')':'')+'</button>'
   const zarG='<button class="danger" onclick="act(\'zar\')">&#9632; Close position</button>'
-  document.getElementById("btns").innerHTML=sm?(sm.open?zarG:nyitG):'<button class="primary" onclick="act(\'nyit\',\'A\')">Open [A]</button><button class="primary" onclick="act(\'nyit\',\'B\')">Open [B]</button><button class="danger" onclick="act(\'zar\')">Close</button>'
+  // Halott venue-ra nem lehet nyitni. A ZÁRÁS viszont marad elérhető: ha valakinek
+  // épp nyitva volt egy köre, amikor a tőzsde kivezetett, ki kell tudnia lépni belőle.
+  const nyithato=!holt.length
+  const tilt=(h)=>nyithato?h:h.replace('<button','<button disabled title="'+holt.join(" and ")+' has no tradeable listings" style="opacity:.45;cursor:not-allowed"')
+  document.getElementById("btns").innerHTML=sm?(sm.open?zarG:tilt(nyitG)):tilt('<button class="primary" onclick="act(\'nyit\',\'A\')">Open [A]</button>')+tilt('<button class="primary" onclick="act(\'nyit\',\'B\')">Open [B]</button>')+'<button class="danger" onclick="act(\'zar\')">Close</button>'
   const fundingEl=document.getElementById("funding")
   if(fundingEl){let fh="";for(const a of ["BTC","ETH"]){const f=d.funding[a],diff=f.var-f.mer;fh+="<tr><td class='big'>"+a+"</td><td class='mono'>"+pct(f.var)+"</td><td class='mono'>"+pct(f.mer)+"</td><td class='mono "+(diff<0?"r":"g")+"'>"+pct(diff)+"</td></tr>"}fundingEl.innerHTML=fh
    let th="";for(const a of ["BTC","ETH"]){const t=d.tips[a];th+="<div style='margin-bottom:4px'><b>"+a+"</b>: <span class='pill short'>SHORT</span> <b>"+t.short_on+"</b> · <span class='pill long'>LONG</span> "+t.long_on+" <span class='d'>("+pct(t.edge_apr)+"/yr = "+usd(t.edge_usd_day)+"/day)</span></div>"}
@@ -1162,7 +1172,10 @@ async function load(force){
   else if(st.active_config==="SAME")posLine="Active config: <b class='g'>[SAME]</b> · <span class='mono'>"+(d.same?d.same.asset+" ":"")+"entry $"+(st.entry_price_asset!=null?(+st.entry_price_asset).toFixed(st.entry_price_asset<1?5:2):"—")+"</span>"
   else posLine="Active config: <b class='g'>["+st.active_config+"]</b> · <span class='mono'>BTC $"+Math.round(st.entry_price_btc).toLocaleString("en-GB")+" / ETH $"+(+st.entry_price_eth).toFixed(2)+"</span>"
   document.getElementById("state").innerHTML=posLine+rebLine
-  const vopt=(sel)=>["Variational","Ethereal","Nado","Lighter","Lighter-RH","Aster","edgeX","Phoenix"].map(v=>'<option value="'+v+'"'+(v===sel?" selected":"")+'>'+v+'</option>').join("")
+  // A halott tőzsde a listában marad — kivenni azt sugallná, hogy sosem létezett,
+  // és aki korábban ráállította a keresztet, nem értené, hova tűnt. Megjelölve viszont
+  // rögtön látszik, miért nem jön adat.
+  const vopt=(sel)=>["Variational","Ethereal","Nado","Lighter","Lighter-RH","Aster","edgeX","Phoenix"].map(v=>'<option value="'+v+'"'+(v===sel?" selected":"")+'>'+v+(venueLive(v)?'':' · delisted')+'</option>').join("")
   const fi=(id,lab,val)=>'<div class="field"><input id="'+id+'" placeholder=" " value="'+val+'"><label>'+lab+'</label></div>'
   const fs=(id,lab,opts,extra)=>'<div class="field sel"><select id="'+id+'"'+(extra||'')+'>'+opts+'</select><label>'+lab+'</label></div>'
   // Csoportosítva, nem egy nyolcmezős webform: a tőke, a stratégia és a venue-k
@@ -1320,6 +1333,10 @@ function setCatS(c){catFilterS=c;for(const x of['all','RWA','alt','major'])docum
 function toggleEgyirS(){csakEgyirS=!csakEgyirS;document.getElementById('eg-s').classList.toggle('on',csakEgyirS);renderStrat()}
 // A hero teljes venue-nevet kap ("Variational"), a logótár rövid kulcsot ("Vari").
 const VKEY=(n)=>({Variational:'Vari','Lighter-RH':'RhLighter',edgeX:'EdgeX'})[n]||n
+// Melyik venue ad élő listát (a szerver számolja, lásd buildPayload `venues`).
+// Ismeretlen = élőnek vesszük: egy hiányzó mező miatt ne írjunk ki halott tőzsdét.
+let VLIVE={}
+const venueLive=(disp)=>{const v=VLIVE[VKEY(disp)];return !v||v.live!==false}
 function vchip(k){
  return (VLOGO[k]?'<img class="vlogo" src="'+VLOGO[k]+'" alt="">':'')+'<span>'+vNev(k)+'</span>'
 }

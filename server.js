@@ -1195,6 +1195,16 @@ function buildPayload() {
     sizing: { leg_notional: legNotional, total: legNotional * 4, qty_btc: qtyBtc, qty_eth: qtyEth, btc_px: btcPx, eth_px: ethPx, margin_leg: marginLeg, buffer },
     sl: { div_pct: slDiv, legs: sl, for_config: showCfg },
     risk: { d_liq: dLiq, divergence: div },
+    // Melyik venue ad EGYÁLTALÁN élő listát. Nem hardkódolt lista: azt számoljuk
+    // meg, hány terméke van nem nulla volumennel. Az Ethereal 2026-08-26-án mind a
+    // 18-at DELISTED-re tette 0 volumennel — a szkennerből az alive() szűrő eddig is
+    // kivette, de a pozíció-panel `pair` módja (ami épp Vari+Ethereal) továbbra is
+    // nyithatónak mutatta, mert az lastVenues-ból olvas szűrés nélkül.
+    // Számolt érték, tehát ha egy tőzsde visszatér, magától újra élőnek látszik.
+    venues: Object.fromEntries(Object.entries(lastVenues || {}).map(([k, v]) => {
+      const n = Object.values(v || {}).filter((x) => x && x.vol !== 0 && x.apr != null).length
+      return [k, { live: n > 0, listings: n }]
+    })),
     state: { active_config: active, entry_price_btc: cfg.entry_price_btc, entry_price_eth: cfg.entry_price_eth, entry_price_asset: cfg.entry_price_asset, capital_v: capV, capital_m: capM, margin_per_leg: marginLeg, leverage: lev, same_asset: cfg.same_asset, same_va: cfg.same_va, same_vb: cfg.same_vb, wallet: cfg.wallet || '' },
     rebalance: reb, alerts, live: reconcile(cfg),
     tick: { legs: tickLegs, asset: tickAsset },
