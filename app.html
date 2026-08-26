@@ -422,19 +422,31 @@ details.card>.body{padding-top:14px}
 .taccsum{flex-basis:100%;font-size:12.5px;padding:8px 12px;margin-top:4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-sm)}
 .taccsum b{font-size:14px}
 /* ── FUNDING FLOW ─────────────────────────────────────────────────────────── */
-.ffgrid{flex-basis:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start}
-@media(max-width:900px){.ffgrid{grid-template-columns:1fr}}
+/* A kártya a jobb OSZLOPBAN ül, tehát a viewport szélessége semmit nem mond róla:
+   1920px-es ablakban is lehet 700px széles. Ezért konténer-lekérdezés, nem media
+   query — az előbbi a kártyát méri, az utóbbi az ablakot, és emiatt tört szét a
+   diagram egy százpixeles sávba, miközben a képernyőn bőven volt hely. */
+.tickwrap{container-type:inline-size}
+.ffgrid{flex-basis:100%;display:grid;grid-template-columns:1fr;gap:14px;align-items:start}
+@container (min-width:700px){
+  .ffgrid{grid-template-columns:minmax(0,1fr) minmax(290px,330px)}
+}
 .ffhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
 .ffhead .winsel{margin-left:auto}
 .fbars{margin-bottom:2px}
 .fchart{display:flex;gap:8px}
 .fchart svg{display:block;flex:1;min-width:0}
 .fyax{display:flex;flex-direction:column;justify-content:space-between;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;text-align:right;min-width:46px}
-.fxax{display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;margin:4px 0 0 54px}
+.fxax{display:flex;justify-content:space-between;gap:6px;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;margin:4px 0 0 54px;white-space:nowrap;overflow:hidden}
 .fxax .now{color:var(--dim);font-weight:700}
-.fcap{display:flex;justify-content:space-between;font-size:10px;font-family:"Cascadia Mono",Consolas,monospace;margin:5px 0 0 54px}
-.fftiles{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));min-width:290px}
-@media(max-width:900px){.fftiles{min-width:0}}
+.fcap{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-family:"Cascadia Mono",Consolas,monospace;margin:5px 0 0 54px;white-space:nowrap;overflow:hidden}
+/* Nincs min-width: a `auto` oszlop + a csempék max-content szélessége együtt vitte
+   el a helyet a diagram elől. Így a csempék annyit kapnak, amennyi jut, és szűk
+   kártyán egyszerűen a chart ALÁ kerülnek egy sorban. */
+.fftiles{display:grid;gap:7px;grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+.fftiles .ftile{padding:9px 10px}
+.fftiles .ftile .v{font-size:15px}
+.legrow,.ffhead,.fftiles{min-width:0}
 .ftile{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px}
 .ftile .v{font-size:17px;font-weight:800;letter-spacing:-.4px;margin:4px 0 2px;font-family:"Cascadia Mono",Consolas,monospace}
 .ftile.y{border-color:#f59e0b55}
