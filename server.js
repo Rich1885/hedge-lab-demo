@@ -98,7 +98,7 @@ function currentUser(req) {
 const CFG_DEFAULT = {
   capital_variational_usd: 1000, capital_meridian_usd: 1000, margin_per_leg_usd: 500,
   leverage: 3, mode: 'same', same_asset: 'BTC',
-  active_config: null, entry_price_asset: null, same_short_on: null,
+  active_config: null, entry_price_asset: null, same_short_on: null, entry_gap: null,
   entry_price_btc: null, entry_price_eth: null, beep_on_flip: true,
   same_va: 'Variational', same_vb: 'Aster',   // same-asset kereszt két platformja (választható)
   fund_acc: null,   // { platform: {usd, last, ticks} } — a nyitott kör óta gyűlt funding
@@ -716,6 +716,12 @@ async function scan() {
       sym: s, cat, mult: pointMult(cat), pair, thin: (vv.vol < THIN_VOL_USD || nn.vol < THIN_VOL_USD),
       vApr: vv.apr, nApr: nn.apr, diff: pair.diff, vVol: vv.vol, nVol: nn.vol,
       maxLev: nn.maxLev ?? null,
+      // A rés a Vari+Nado kereszten sokáig hiányzott — egyedüliként a hat közül —,
+      // pedig a Nado ad oracle-árat. Emiatt ezen a kereszten se a Gap oszlop, se az
+      // Egyirány-szűrő nem működött, holott épp itt számít: a Nado alt-könyvei
+      // vékonyak (a CHIP-kör $2000-ból 15%-ot töltött), és ott a rés viszi el, amit
+      // a funding hoz. Pontosan úgy számoljuk, ahogy a másik öt kereszten.
+      gap: priceGap(vv.price, nn.price), aligned: gapAligned(priceGap(vv.price, nn.price), pair.short),
       costRT, beDays: Math.abs(pair.diff) > 0 ? (costRT * 365) / Math.abs(pair.diff) : null,
       avg7d: h.avg7d, ageH: h.ageH, ageCapped: h.capped,
       variIvS: variIvS(s),   // a Vari pillanatkép-tickjéhez (kripto 4h, RWA 8h)
@@ -987,17 +993,25 @@ function snapshotOpenPnl() {
     return openPnl(cfg, null, { BTC: markPrice('BTC'), ETH: markPrice('ETH') })
   } catch { return { Ethereal: 0, Variational: 0 } }
 }
-function rebalanceCalc(pnlNow) {
-  let baseE = null, baseV = null, dateE = '', dateV = '', logE = 0, logV = 0
-  for (const e of loadNaplo()) {
-    if (e.eth_usd != null) { baseE = e.eth_usd; dateE = e.date; logE = e.pnl_e || 0 }
-    if (e.vari_usd != null) { baseV = e.vari_usd; dateV = e.date; logV = e.pnl_v || 0 }
-  }
-  if (baseE == null || baseV == null) return null
-  const estE = baseE + pnlNow.Ethereal - logE, estV = baseV + pnlNow.Variational - logV
-  const target = (estE + estV) / 2, amount = Math.abs(estE - estV) / 2
-  const [frm, to] = estV > estE ? ['Variational', 'Ethereal'] : ['Ethereal', 'Variational']
-  return { est_e: estE, est_v: estV, target, amount, from: frm, to, base_date: dateE > dateV ? dateE : dateV }
+// A kiegyenlítés-kalkulátor a demóban NEM tud működni, és ezt itt mondjuk ki egyszer.
+//
+// Az éles rendszerben a napló minden bejegyzése hordozta a két platform aznapi
+// egyenlegét (`eth_usd` / `vari_usd`), és ebből a legutolsóból + a nyitott PnL-ből
+// jött ki, mennyit kell átutalni, hogy a két oldal újra egyforma legyen. A demó
+// naplója viszont szándékosan csak a kör eredményét tárolja — `{id, kind, pnl,
+// note, date}`, lásd fromRow() —, mert egyenleget közölni egy publikus demóban
+// nem kell és nem is illik. A számításnak így nincs kiindulópontja.
+//
+// A kivágáskor a függvény törzse bent maradt, és a szülő SZINKRON loadNaplo()-ját
+// hívta, ami a demóban nem létezik (itt a napló async naploList(uid)). Ettől a
+// /api/data 500-zal elszállt: MINDIG `pair` módban, és `same` módban akkor, ha
+// valaki a Variational+Ethereal keresztet választotta — vagyis a látogató két
+// kattintással üres dashboardot kapott.
+//
+// null = "nincs kiegyenlítési javaslat", pontosan az, amit az eredeti is adott
+// volna baseE/baseV nélkül. A hívási helyek (1118, 1137) érintetlenek maradhatnak.
+function rebalanceCalc(_pnlNow) {
+  return null
 }
 function rebTxt(r) { if (!r || r.amount < 20) return ''; return ` → Utalj ~$${r.amount.toFixed(0)} ${r.from} → ${r.to} (becslés: Ethereal ~$${r.est_e.toFixed(0)} / Vari ~$${r.est_v.toFixed(0)}, cél ~$${r.target.toFixed(0)}/oldal).` }
 
@@ -2995,6 +3009,13 @@ async function handler(req, res) {
         if (!A || !B || A.apr == null || B.apr == null) return json({ error: `${asset} nem érhető el mindkét platformon (${vaN} / ${vbN})` }, 400)
         cfg.active_config = 'SAME'; cfg.entry_price_asset = A.price ?? B.price
         cfg.same_short_on = A.apr > B.apr ? vaN : vbN
+        // A BELÉPŐ RÉS — enélkül a kör bázis-PnL-je (a rés elmozdulása dollárban) nem
+        // számolható, csak a funding-akkumulátor látszik, ami mindig FELFELÉ megy.
+        // Élesben ez négy KAITO-körön át félrevezetett: a funding mind a négyszer hozott
+        // (+$31/+$29/+$19/+$18), a rés viszont háromszor elvitte (+$5/−$27/−$21/−$26),
+        // tehát három nyerőnek látszó kör valójában veszteséges volt. Ugyanaz az irány
+        // kell, mint a buildPayload `gap` mezőjének: (va ára − vb ára) / vb ára.
+        cfg.entry_gap = priceGap(A.price, B.price)
         cfg.fund_acc = null   // új kör — a számláló nulláról indul
       } else {
         const which = String(b.cfg || 'A').toUpperCase()
@@ -3004,7 +3025,7 @@ async function handler(req, res) {
       saveCfg(cfg); json({ ok: true })
     }
     else if (url === '/api/zar' && req.method === 'POST') {
-      const cfg = loadCfg(); cfg.active_config = null; cfg.entry_price_btc = null; cfg.entry_price_eth = null; cfg.entry_price_asset = null; cfg.same_short_on = null
+      const cfg = loadCfg(); cfg.active_config = null; cfg.entry_price_btc = null; cfg.entry_price_eth = null; cfg.entry_price_asset = null; cfg.same_short_on = null; cfg.entry_gap = null
       saveCfg(cfg); json({ ok: true })
     }
     else if (url === '/api/settings' && req.method === 'POST') {
