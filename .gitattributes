@@ -1,0 +1,4 @@
+# A kiszolgalt oldal bajtra az legyen, ami a fajlban van: a PAGE template
+# literal koraban a CRLF-et a JS-motor LF-re normalizalta, tehat a bongeszo
+# mindig LF-et kapott. Autocrlf nelkul ez a checkoutnal CRLF-re valtozna.
+app.html text eol=lf
