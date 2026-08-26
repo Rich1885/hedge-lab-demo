@@ -111,8 +111,8 @@ body{margin:0;background:
 .legc{border:1px solid var(--line2);border-radius:var(--r);padding:14px 16px}
 .legc.s{border-color:#f8717133;background:linear-gradient(180deg,var(--rbg),transparent)}
 .legc.l{border-color:#4ade8033;background:linear-gradient(180deg,var(--gbg),transparent)}
-.legc .side{font-size:9.5px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase}
-.legc.s .side{color:var(--red)} .legc.l .side{color:var(--green)}
+.legc .legside{font-size:9.5px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase}
+.legc.s .legside{color:var(--red)} .legc.l .legside{color:var(--green)}
 .legc .ven{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;letter-spacing:-.3px;margin-top:7px}
 .legc .ven img{width:20px;height:20px;border-radius:5px}
 .legc dl{display:grid;grid-template-columns:auto auto;gap:7px 12px;margin:13px 0 0;font-size:12px;align-items:baseline}
@@ -584,7 +584,7 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
     <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si">▦</span>Dashboard</button>
     <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si">⇄</span>Pairs Scanner</button>
     <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si">★</span>Best Pairs</button>
-    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si">◎</span>Round</button>
+    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si">◎</span>Position</button>
     <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si">◷</span>History</button>
   </nav>
   <div class="sfoot"><a href="/">&larr; Overview</a></div>
@@ -1937,7 +1937,7 @@ function renderHero(d,sm,st){
    if(L&&L.acc_usd!=null&&L.acc_ticks>0)s.push(['Earned so far','<span class="'+(L.acc_usd>=0?'g':'r')+'">'+usd(L.acc_usd)+'</span> <span class="d" style="font-weight:500">'+L.acc_ticks+'×</span>'])
    if(L&&L.notional!=null)s.push(['Leg size','$'+Math.round(L.notional).toLocaleString('en-GB')])
    const lg=VLOGO[VKEY(ven)]?'<img src="'+VLOGO[VKEY(ven)]+'" alt="">':''
-   return '<div class="legc '+kind+'"><div class="side">'+(kind==='s'?'Short':'Long')+'</div>'
+   return '<div class="legc '+kind+'"><div class="legside">'+(kind==='s'?'Short':'Long')+'</div>'
     +'<div class="ven">'+lg+ven+'</div><dl>'+s.map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('')+'</dl></div>'
   }
   el2('h_legs',legCard('s',sVen,sm.short_apr)+'<div class="swapo"><i>⇄</i></div>'+legCard('l',lVen,sm.long_apr))
