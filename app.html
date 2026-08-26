@@ -577,6 +577,17 @@ th[data-sortable]{cursor:pointer;user-select:none}
 th[data-sortable]:hover{color:var(--tx)}
 th.sorted{color:var(--blue)}
 th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-align:middle}
+/* ── Position-lap: időablak-választó és a hozam-vetítés ─────────────────────── */
+.winsel{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap}
+.measttl{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.ehold{margin:14px 0 4px}
+.ehold table{width:100%;border-collapse:collapse}
+.ehold th{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--faint);text-align:right;padding:0 0 7px}
+.ehold th:first-child{text-align:left}
+.ehold td{padding:5px 0;font-size:12.5px;text-align:right;border-top:1px solid var(--sep2)}
+.ehold td:first-child{text-align:left;color:var(--dim);font-weight:600;font-family:'Inter',system-ui,sans-serif}
+.ehold td.b{font-weight:800;font-size:14px;color:var(--tx)}
+.winnote{font-size:11.5px;color:var(--yellow);background:var(--ybg);border:1px solid #f59e0b33;border-radius:var(--r-sm);padding:8px 11px;margin-top:10px}
 </style></head><body>
 <div class="side">
   <div class="sbrand"><span class="live"></span>HEDGE<b>LAB</b></div>
@@ -1767,34 +1778,126 @@ const MEAS_MIN_H=72
 // az, hogy "gyűlik az adat", hanem hogy lásd a saját párod rését kattintás nélkül.
 // Olcsó végpontot hív (/api/series), ami csak a labHist-ből olvas.
 let _measSym=null
+// ── időablak a Position-lap chartjaihoz ─────────────────────────────────────
+// NEM 7 nap. A körök 4-12 órásak, tehát a chartnak a kör életciklusát kell
+// mutatnia. A 7 napos átlag ettől nem lesz felesleges — de az egy MÁSIK kérdésre
+// válaszol ("valódi ez az irány, vagy tüske?"), és ott is marad, ahol eddig volt:
+// az Ítélet-jelvényben és a mélyfúrásban.
+let posWin=12, MEASD=null, MEASS=null, MEASSYM=null
+function setPosWin(w){
+ posWin=w
+ for(const x of [1,4,8,12,'entry'])
+  {const b=document.getElementById('pw-'+x);if(b)b.classList.toggle('on',String(x)===String(w))}
+ if(MEASD)renderMeasBar(MEASD)
+}
+// A rés TIPIKUS elmozdulása `h` óra alatt: az |x(t+h) − x(t)| különbségek MEDIÁNJA.
+// Medián, nem átlag — a rés-sorok tele vannak tüskékkel, és egyetlen kiugrás úgy
+// felfújná az átlagot, hogy utána semmi nem tűnne szélsőségesnek.
+function gapMove(gs,ts,h){
+ const v=[],cel=h*3600000
+ for(let i=0;i<gs.length;i++){
+  if(gs[i]==null)continue
+  let j=-1
+  for(let k=i+1;k<gs.length;k++){if(gs[k]==null)continue;if(ts[k]-ts[i]>=cel){j=k;break}}
+  if(j<0)break
+  v.push(Math.abs(gs[j]-gs[i]))
+ }
+ if(!v.length)return null
+ v.sort((a,b)=>a-b)
+ return v[Math.floor(v.length/2)]
+}
+// A beállított kereszt sora a szken-adatból — innen jön a 7 napos átlag és a
+// kör-költség. Csak Vari-keresztre megy: a hat lista mind ilyen.
+function crossRowFor(d){
+ if(!scanData||!d.same||d.same.va_name!=='Variational')return null
+ const def=PAIRVENUES.find(x=>x.nev===d.same.vb_name)
+ if(!def)return null
+ return (scanData[def.k]||[]).find(r=>r.sym===d.same.asset)||null
+}
 async function renderMeasBar(d){
  const el=document.getElementById('measbar');if(!el)return
+ MEASD=d
  const sym=(d.same&&d.same.asset)||(d.state&&d.state.same_asset)||null
  if(!sym){el.innerHTML='';return}
  const vb=(d.same&&d.same.vb_name)||'Lighter'
  let s
- try{s=await fetch('/api/series/'+encodeURIComponent(sym)).then(r=>r.json())}catch{return}
+ // A sorozatot ablakváltáskor nem kérjük le újra — ugyanaz az eszköz, ugyanaz az adat.
+ if(MEASS&&MEASSYM===sym)s=MEASS
+ else{
+  try{s=await fetch('/api/series/'+encodeURIComponent(sym)).then(r=>r.json())}catch{return}
+  MEASS=s;MEASSYM=sym
+ }
  if(!s||!s.t||!s.t.length){el.innerHTML='';return}
  const kulcs=vb==='Aster'?'gAst':vb==='edgeX'?'gEdx':vb==='Phoenix'?'gPhx':vb==='Lighter-RH'?'gRhl':'gLi'
- const gs=s[kulcs]||[]
- const gv=gs.filter(x=>x!=null)
+ const gsAll=s[kulcs]||[]
  const nyitva=!!(d.same&&d.same.open)
- let h='<div class="measttl">'+(nyitva?'● LIVE':'○ ARMED')+' · <b>'+sym+'</b> <span class="d">Vari ↔ '+vb+'</span></div>'
+ const entryTs=(d.same&&d.same.entry_ts)||null
+ // Az ablakot az UTOLSÓ MÉRÉSHEZ képest vágjuk, nem a faliórához. Vercelen a
+ // történet a seednél megáll (minden cold start visszaáll rá), és egy fali-órás
+ // "utolsó 12 óra" ott mindig üres lenne, holott van mit mutatni.
+ const tMax=s.t[s.t.length-1]
+ const tMin=(posWin==='entry'&&entryTs)?entryTs-1800000:tMax-(+posWin||12)*3600000
+ let keep=s.t.map((t,i)=>t>=tMin?i:-1).filter(i=>i>=0)
+ // Ha az ablakba nem esik elég mérés, a teljes sorozatot mutatjuk és KIÍRJUK, hogy
+ // miért. Üres chartot mutatni rosszabb, mint egy szélesebb ablakot: a demó
+ // seedje napokkal ezelőtti, Vercelen pedig minden cold start visszaáll rá, tehát
+ // egy szűk ablak ott rendszeresen üres lenne.
+ let szuk=true
+ if(keep.filter(i=>gsAll[i]!=null).length<2){keep=s.t.map((t,i)=>i);szuk=false}
+ const cut=(a)=>keep.map(i=>(a&&a[i]!=null)?a[i]:null)
+ const tt=keep.map(i=>s.t[i])
+ const gs=cut(gsAll),gv=gs.filter(x=>x!=null)
+ const win=(x,l)=>'<button class="filt'+(String(posWin)===String(x)?' on':'')+'" id="pw-'+x+'" onclick="setPosWin(\''+x+'\')">'+l+'</button>'
+ let h='<div class="measttl">'+(nyitva?'● LIVE':'○ ARMED')+' · <b>'+sym+'</b> <span class="d">Vari ↔ '+vb+'</span>'
+  +'<span class="winsel">'+win(1,'1H')+win(4,'4H')+win(8,'8H')+win(12,'12H')
+  +(entryTs?win('entry','Since entry'):'')+'</span></div>'
+ if(!szuk)h+='<div class="winnote">Not enough measurement inside that window — showing everything recorded ('+keep.length+' hourly points). The demo ships a seed and only keeps measuring while the server stays up.</div>'
+ h+=expectedHold(d,gsAll,s.t)
  if(gv.length>1){
   const most=gv[gv.length-1]
   const belepo=(d.same&&d.same.entry_gap!=null)?d.same.entry_gap:null
   h+='<div class="measch"><div class="measlbl">PRICE GAP — the difference between the two venues, hourly. '
    +'<b>'+(most>0?'Vari is currently more expensive':'Vari is currently cheaper')+'</b> '+((most>0?'+':'−')+(Math.abs(most)*100).toFixed(2))+'%.'
    +(belepo!=null?' Your entry: '+((belepo>0?'+':'−')+(Math.abs(belepo)*100).toFixed(2))+'% — the difference between the two numbers is your basis P&L.':' A short on Vari profits when the gap narrows.')
-   +'</div>'+dline(gs,s.t,'#a78bfa',(x)=>((x>0?'+':'')+(x*100).toFixed(2)+'%'))+'</div>'
+   +'</div>'+dline(gs,tt,'#a78bfa',(x)=>((x>0?'+':'')+(x*100).toFixed(2)+'%'),entryTs)+'</div>'
  }
- const vv=(s.v||[]).filter(x=>x!=null)
+ const vs=cut(s.v),vv=vs.filter(x=>x!=null)
  if(vv.length>1){
   h+='<div class="measch"><div class="measlbl">VARI FUNDING — annualised rate, measured hourly. '
    +'<b>Above zero the SHORT receives</b>, below it the LONG. A steady line means you can size on it; a jumpy one means the current value promises nothing.</div>'
-   +dline(s.v,s.t,'#f59e0b',(x)=>(x*100).toFixed(0)+'%')+'</div>'
+   +dline(vs,tt,'#f59e0b',(x)=>(x*100).toFixed(0)+'%',entryTs)+'</div>'
  }
  el.innerHTML=h
+}
+// ── EXPECTED HOLD ───────────────────────────────────────────────────────────
+// "Ha most nyitom és 8 órát tartom, mi jön ki?" — ez a valódi kérdés, nem az,
+// hogy mi volt a spread egy héten át.
+//
+// A funding NEM a pillanatnyi rátából jön, hanem a 7 NAPOS ÁTLAGBÓL. A pillanatnyi
+// ráta ugyanis félrevezet: egy élő körön a tickek 2,36 → 1,80 → 1,18 → 2,18 → 0,67
+// → 0,49 menetben jöttek, és a záró ráta $14,16-ot ígért volna a valós $8,68 helyett.
+//
+// És bruttó helyett NETTÓ: a bruttó funding mindig pozitív, a bukást a kör-költség
+// és a rés elmozdulása hozza. A rés-sáv ezért külön sorban áll — az nem levonás,
+// hanem a kockázat mérete: ha nagyobb, mint a nettó, a pár nem játszható.
+function expectedHold(d,gsAll,ts){
+ const sm=d.same;if(!sm)return ''
+ const r=crossRowFor(d)
+ const leg=sm.leg_notional
+ // 7 napos átlag, ha van; ha nincs, a mostani spread — de akkor kiírjuk, hogy az.
+ const alap=(r&&r.avg7d!=null&&r.avg7d>0)?r.avg7d:Math.abs(sm.diff)
+ const forras=(r&&r.avg7d!=null&&r.avg7d>0)?'7d average':'current rate'
+ const koltseg=r&&r.costRT!=null?leg*r.costRT:null
+ const H=[4,8,12]
+ const sor=(cim,f,cls)=>'<tr><td>'+cim+'</td>'+H.map(h=>'<td class="mono '+(cls||'')+'">'+f(h)+'</td>').join('')+'</tr>'
+ const fund=(h)=>leg*alap/8760*h
+ return '<div class="ehold"><table><thead><tr><th>Expected hold</th>'
+  +H.map(h=>'<th>'+h+'H</th>').join('')+'</tr></thead><tbody>'
+  +sor('funding <span class="d">('+forras+')</span>',(h)=>'+$'+fund(h).toFixed(2),'g')
+  +(koltseg!=null?sor('round-trip cost',()=>'−$'+koltseg.toFixed(2),'r'):'')
+  +(koltseg!=null?sor('<b>net</b>',(h)=>{const n=fund(h)-koltseg;return (n>=0?'+$':'−$')+Math.abs(n).toFixed(2)},'b'):'')
+  +sor('gap swing <span class="d">(typical)</span>',(h)=>{const g=gapMove(gsAll,ts,h);return g==null?'—':'±$'+(leg*g).toFixed(2)},'y')
+  +'</tbody></table><div class="hint">The funding is projected from the '+forras+', not the current tick — a closing rate would have promised $14.16 on a round that actually paid $8.68. <b>Gap swing</b> is not a deduction but the size of the risk: the median move of the price gap over that many hours. When it dwarfs the net, the pair is not playable however you stand.</div></div>'
 }
 function closeDive(){document.getElementById('diveOverlay').style.display='none';document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDive()})
@@ -1981,7 +2084,7 @@ function renderHero(d,sm,st){
 // van látható távolság, de a −17520% is elfér ugyanazon a képen.
 // A mértékegység a sorozat tipikus nagysága (|értékek| mediánja), hogy minden
 // sorozat a saját léptékében olvasható legyen.
-function dline(vals,ts,szin,fmt){
+function dline(vals,ts,szin,fmt,entryTs){
  const v=vals.filter(x=>x!=null)
  if(v.length<2)return '<div class="none">not enough measurements yet — they accumulate hourly</div>'
  const dMin=Math.min(...v),dMax=Math.max(...v),most=v[v.length-1]
@@ -2010,6 +2113,17 @@ function dline(vals,ts,szin,fmt){
   +'</div>'
   +'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">'
   +'<line x1="0" y1="'+z+'" x2="'+W+'" y2="'+z+'" stroke="#3a4454" stroke-width="1" stroke-dasharray="3 3"/>'
+  // Belépő-marker: függőleges vonal ott, ahol a kört nyitottad. Csak akkor rajzoljuk,
+  // ha van hozzá közeli mérés — különben a vonal a semmit jelölné.
+  +(function(){
+    if(!entryTs||!ts)return ''
+    let bi=-1,bd=Infinity
+    for(const i of idx){const dd=Math.abs(ts[i]-entryTs);if(dd<bd){bd=dd;bi=i}}
+    if(bi<0||bd>3*3600000)return ''
+    const mx=X(bi)
+    return '<line x1="'+mx+'" y1="0" x2="'+mx+'" y2="'+H+'" stroke="#e2e0f0" stroke-width="1" stroke-dasharray="2 3" opacity=".5"/>'
+      +'<circle cx="'+mx+'" cy="'+y(vals[bi])+'" r="2.5" fill="#e2e0f0"/>'
+  })()
   +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+szin+'" stroke-width="2" stroke-linejoin="round"/>'
   +'<circle cx="'+W+'" cy="'+mostY+'" r="3" fill="'+szin+'"/></svg></div>'
   +'<div class="cap"><span>min '+fmt(dMin)+' · max '+fmt(dMax)+' <span class="d">· log scale</span></span>'

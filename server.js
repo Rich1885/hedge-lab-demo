@@ -98,7 +98,7 @@ function currentUser(req) {
 const CFG_DEFAULT = {
   capital_variational_usd: 1000, capital_meridian_usd: 1000, margin_per_leg_usd: 500,
   leverage: 3, mode: 'same', same_asset: 'BTC',
-  active_config: null, entry_price_asset: null, same_short_on: null, entry_gap: null,
+  active_config: null, entry_price_asset: null, same_short_on: null, entry_gap: null, entry_ts: null,
   entry_price_btc: null, entry_price_eth: null, beep_on_flip: true,
   same_va: 'Variational', same_vb: 'Aster',   // same-asset kereszt két platformja (választható)
   fund_acc: null,   // { platform: {usd, last, ticks} } — a nyitott kör óta gyűlt funding
@@ -1119,7 +1119,7 @@ function buildPayload() {
         usd_day: legNotional * diffS / 365, qty: qtyS, leg_notional: legNotional, d_liq: dLiq,
         open: isOpen, entry: cfg.entry_price_asset, opened_short_on: cfg.same_short_on,
         drift, used: usedS, sl_short: priceS * (1 + 0.8 * dLiq), sl_long: priceS * (1 - 0.8 * dLiq), min_qty: minq,
-        gap: priceGap(A.price, B.price), entry_gap: cfg.entry_gap ?? null,
+        gap: priceGap(A.price, B.price), entry_gap: cfg.entry_gap ?? null, entry_ts: cfg.entry_ts ?? null,
       }
       // rebalance csak Variational+Ethereal párra (a napló csak ezt a két egyenleget követi)
       const isVE = (vaN === 'Variational' || vaN === 'Ethereal') && (vbN === 'Variational' || vbN === 'Ethereal') && vaN !== vbN
@@ -1426,6 +1426,9 @@ async function handler(req, res) {
         // tehát három nyerőnek látszó kör valójában veszteséges volt. Ugyanaz az irány
         // kell, mint a buildPayload `gap` mezőjének: (va ára − vb ára) / vb ára.
         cfg.entry_gap = priceGap(A.price, B.price)
+        // A belépés IDEJE — enélkül nincs "belépő óta" nézet, és a drift sem tudja
+        // megmondani, hány órája fut a kör. A chart entry-markere is ebből tájékozódik.
+        cfg.entry_ts = Date.now()
         cfg.fund_acc = null   // új kör — a számláló nulláról indul
       } else {
         const which = String(b.cfg || 'A').toUpperCase()
@@ -1435,7 +1438,7 @@ async function handler(req, res) {
       saveCfg(cfg); json({ ok: true })
     }
     else if (url === '/api/zar' && req.method === 'POST') {
-      const cfg = loadCfg(); cfg.active_config = null; cfg.entry_price_btc = null; cfg.entry_price_eth = null; cfg.entry_price_asset = null; cfg.same_short_on = null; cfg.entry_gap = null
+      const cfg = loadCfg(); cfg.active_config = null; cfg.entry_price_btc = null; cfg.entry_price_eth = null; cfg.entry_price_asset = null; cfg.same_short_on = null; cfg.entry_gap = null; cfg.entry_ts = null
       saveCfg(cfg); json({ ok: true })
     }
     else if (url === '/api/settings' && req.method === 'POST') {
