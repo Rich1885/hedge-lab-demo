@@ -430,6 +430,15 @@ details.card>.body{padding-top:14px}
 .ftiles{flex-basis:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:4px}
 .ftile{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px}
 .ftile .v{font-size:16px;font-weight:800;letter-spacing:-.4px;margin-top:4px}
+/* ── POSITION SIZING · RISK MANAGEMENT ─────────────────────────────────────── */
+.szrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}
+.szv{font-size:21px;font-weight:800;letter-spacing:-.7px;margin:5px 0 3px}
+.szliq{margin-top:16px;padding-top:14px;border-top:1px solid var(--sep)}
+.szliq .hbar{margin:7px 0 6px}
+.slrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
+.slbox{border:1px solid var(--line2);border-radius:var(--r);padding:13px 15px}
+.slbox.s{border-color:#f8717133;background:linear-gradient(180deg,var(--rbg),transparent)}
+.slbox.l{border-color:#4ade8033;background:linear-gradient(180deg,var(--gbg),transparent)}
 /* Chart-magyarázat: egy nap kihagyás után sem kell találgatni, mit néz az ember. */
 .chexp{font-size:11.5px;line-height:1.5;color:var(--dim);margin-top:6px;padding:8px 11px;background:rgba(255,255,255,.025);border-left:2px solid var(--line2);border-radius:0 var(--r-xs) var(--r-xs) 0}
 .chexp b{color:var(--tx)}
@@ -789,10 +798,12 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
 <div class="grid" id="grid" style="display:none">
   <div class="gcol">
     <div class="card"><h2>Leg allocation</h2><div id="configs"></div></div>
-    <div class="card"><h2>Position sizing &amp; stops</h2><div id="sizing"></div>
-      <!-- A folyó mérések a méretezés alatti üres helyre kerülnek: a bal oszlop
-           amúgy is alacsonyabb, mint a Pozíció-kezelés oszlopa. -->
-      <div class="measbar" id="measbar"></div></div>
+    <!-- A méretezés és a stopok KÜLÖN kártyán: az egyik azt mondja meg, mekkorát
+         nyiss, a másik azt, hol szállj ki. Egy dobozban egymás alá szorítva a
+         stopok a méretezés lábjegyzetének látszottak. -->
+    <div class="card"><h2>Position sizing</h2><div id="sizing"></div></div>
+    <div class="card"><h2>Risk management</h2><div id="risk"></div></div>
+    <div class="card"><div class="measbar" id="measbar"></div></div>
   </div>
   <div class="gcol" id="ctrlcol">
     <div class="card featured"><h2>⚖ Position</h2><div id="state" style="font-size:14px"></div>
@@ -1236,14 +1247,38 @@ async function load(force){
   document.getElementById("configs").innerHTML=ch
   const s=d.sizing
   if(sm){const dec2=sm.price<1?5:2
-   // Az SL a saját sorába került a táblába (külön cím + külön sor helyett), a hint
-   // pedig egy mondatra — így fér a folyó mérések alá ugyanabban a kártyában.
-   document.getElementById("sizing").innerHTML="Same-asset mode: <b>"+sm.asset+"</b> per leg <b class='big mono'>$"+sm.leg_notional.toLocaleString("en-GB")+"</b> (1 leg per venue)<table style='margin-top:6px'><tbody><tr><td>"+sm.asset+" size</td><td class='mono big'>"+sm.qty.toLocaleString("en-GB")+"</td><td class='d mono'>@ $"+sm.price.toFixed(dec2)+"</td></tr><tr><td>Liquidation distance (theoretical)</td><td class='mono big'>"+pct(sm.d_liq,1)+"</td><td class='d'>either direction</td></tr><tr><td>Stop (theoretical)</td><td class='mono'><span class='pill short'>S</span> "+sm.sl_short.toFixed(dec2)+"</td><td class='mono'><span class='pill long'>L</span> "+sm.sl_long.toFixed(dec2)+"</td></tr></tbody></table><div class='hint'>Place stops 2-3% ahead of the venue&#39;s <b>published</b> liquidation price. If either fills, close the other leg immediately.</div>"
+   // ── méretezés ──
+   // A likvidációs táv sávot kapott: a puszta százalék nem mondja meg, hogy az
+   // sok-e. A színküszöb a naplóból jön — 25% alatt egy szokásos alt-napi mozgás
+   // is elviheti, 50% fölött viszont már a rés a szűk keresztmetszet, nem a táv.
+   const u=Math.min(1,sm.d_liq/0.6)
+   const szin=sm.d_liq<0.25?'var(--red)':sm.d_liq<0.4?'var(--gold)':'var(--green)'
+   const kicsi=sm.min_qty&&sm.qty<sm.min_qty
+   document.getElementById("sizing").innerHTML=
+    "<div class='szrow'><div><div class='t-label'>Per leg</div><div class='szv mono'>$"+sm.leg_notional.toLocaleString("en-GB")+"</div>"
+    +"<div class='t-meta'>1 leg per venue · "+(d.state.leverage||3)+"× on $"+Math.round(d.sizing.margin_leg)+" margin</div></div>"
+    +"<div><div class='t-label'>"+sm.asset+" size</div><div class='szv mono'>"+sm.qty.toLocaleString("en-GB")+"</div>"
+    +"<div class='t-meta'>@ $"+sm.price.toFixed(dec2)+(kicsi?" · <span class='r'>below the venue minimum ("+sm.min_qty+")</span>":"")+"</div></div></div>"
+    +"<div class='szliq'><div class='t-label'>Liquidation distance <span class='d'>(theoretical)</span></div>"
+    +"<div class='szv mono' style='color:"+szin+"'>"+pct(sm.d_liq,1)+"</div>"
+    +"<div class='hbar'><i style='width:"+Math.max(u*100,3).toFixed(0)+"%;background:"+szin+"'></i></div>"
+    +"<div class='t-meta'>either direction — the price has to move this far before the venue closes you</div></div>"
+   // ── kockázat ──
+   // A két stop egyenlő távolságra van (0,8 × likvidációs táv), tehát a százalék
+   // ugyanaz — de a KÉT ÁR nem, és nyitáskor mindkettőt be kell írni valahova.
+   const tav=(ar)=>pct(Math.abs(ar/sm.price-1),1)
+   const slbox=(cls,cim,ar)=>"<div class='slbox "+cls+"'><div class='t-label'>"+cim+"</div>"
+    +"<div class='szv mono'>"+ar.toFixed(dec2)+"</div><div class='t-meta'>distance "+tav(ar)+"</div></div>"
+   document.getElementById("risk").innerHTML=
+    "<div class='slrow'>"+slbox('s','Short leg stop',sm.sl_short)+slbox('l','Long leg stop',sm.sl_long)+"</div>"
+    +"<div class='hint'>Place stops 2-3% ahead of the venue&#39;s <b>published</b> liquidation price — the theoretical distance above assumes no fees and no funding drag. <b>If either fills, close the other leg immediately</b>: a half-closed hedge is a naked position, and that is how the biggest single loss in the journal happened.</div>"
   }else{
-   let sh="Per leg <b class='big mono'>$"+s.leg_notional.toLocaleString("en-GB")+"</b> <span class='d'>($"+s.margin_leg+" margin × leverage · buffer $"+s.buffer+")</span><table style='margin-top:6px'><tbody><tr><td>BTC  size</td><td class='mono big'>"+s.qty_btc+"</td><td class='d mono'>@ $"+Math.round(s.btc_px).toLocaleString("en-GB")+"</td></tr><tr><td>ETH  size</td><td class='mono big'>"+s.qty_eth+"</td><td class='d mono'>@ $"+s.eth_px.toFixed(2)+"</td></tr></tbody></table><div style='margin-top:11px;font-weight:700;font-size:13px'>SL-javaslatok <span class='d' style='font-weight:400;font-size:11.5px'>(["+d.sl.for_config+"] konfig, ±"+pct(d.sl.div_pct,1)+")</span></div><table><tbody>"
+   document.getElementById("sizing").innerHTML=
+    "Per leg <b class='big mono'>$"+s.leg_notional.toLocaleString("en-GB")+"</b> <span class='d'>($"+s.margin_leg+" margin × leverage · buffer $"+s.buffer+")</span><table style='margin-top:6px'><tbody><tr><td>BTC  size</td><td class='mono big'>"+s.qty_btc+"</td><td class='d mono'>@ $"+Math.round(s.btc_px).toLocaleString("en-GB")+"</td></tr><tr><td>ETH  size</td><td class='mono big'>"+s.qty_eth+"</td><td class='d mono'>@ $"+s.eth_px.toFixed(2)+"</td></tr></tbody></table>"
+   let sh="<div class='t-meta' style='margin-bottom:8px'>["+d.sl.for_config+"] config · ±"+pct(d.sl.div_pct,1)+"</div><table><tbody>"
    for(const l of d.sl.legs)sh+="<tr><td><span class='chip'>"+l.platform+"</span></td><td><span class='pill "+l.side.toLowerCase()+"'>"+l.side+"</span> <b>"+l.asset+"</b></td><td class='mono big'>"+l.price.toLocaleString("en-GB",{maximumFractionDigits:2})+"</td></tr>"
-   sh+="</tbody></table><div class='hint'>Fill order: Ethereal limit (post-only) → filled → remaining legs immediately. Do not set take-profits.</div>"
-   document.getElementById("sizing").innerHTML=sh}
+   sh+="</tbody></table><div class='hint'>Fill order: the thinner venue first with a post-only limit → filled → remaining legs immediately. Do not set take-profits. <b>If one stop fills, close the other leg at once.</b></div>"
+   document.getElementById("risk").innerHTML=sh}
   const reb=d.rebalance;let rebLine=""
   if(reb)rebLine="<div class='rebalance-box'>Estimated balance <span class='d'>(journal "+reb.base_date+" + uPnL)</span><br>Ethereal <b class='mono'>$"+Math.round(reb.est_e)+"</b> · Vari <b class='mono'>$"+Math.round(reb.est_v)+"</b><br>"+(reb.amount>=20?"Rebalance: <b class='mono y'>~$"+Math.round(reb.amount)+"</b> "+reb.from+" → "+reb.to+" <span class='d'>(target ~$"+Math.round(reb.target)+"/oldal)</span>":"<span class='g'>No rebalance needed (imbalance below $20 per side).</span>")+"</div>"
   let posLine
