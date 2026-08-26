@@ -439,6 +439,10 @@ details.card>.body{padding-top:14px}
 .slbox{border:1px solid var(--line2);border-radius:var(--r);padding:13px 15px}
 .slbox.s{border-color:#f8717133;background:linear-gradient(180deg,var(--rbg),transparent)}
 .slbox.l{border-color:#4ade8033;background:linear-gradient(180deg,var(--gbg),transparent)}
+/* ── CONFIGURATION fejléc ─────────────────────────────────────────────────── */
+.cfgsum{font-weight:600;font-size:11.5px;letter-spacing:0;text-transform:none;color:var(--dim);font-family:"Cascadia Mono",Consolas,monospace;margin-left:4px}
+.cfgtog{margin-left:auto;font-weight:700}
+#cfgcard h2{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 /* Chart-magyarázat: egy nap kihagyás után sem kell találgatni, mit néz az ember. */
 .chexp{font-size:11.5px;line-height:1.5;color:var(--dim);margin-top:6px;padding:8px 11px;background:rgba(255,255,255,.025);border-left:2px solid var(--line2);border-radius:0 var(--r-xs) var(--r-xs) 0}
 .chexp b{color:var(--tx)}
@@ -794,7 +798,14 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
 <!-- A konfiguráció a hero ALATT áll, nem a jobb oszlop aljában: ez az a panel,
      amit a legtöbbször átállítasz, mielőtt bármi mást megnéznél. Korábban a lap
      legaljára szorult, két másik kártya mögé. -->
-<div class="card" id="cfgcard" style="display:none"><h2>⚙ Configuration</h2><div id="settings"></div></div>
+<!-- Az összefoglaló a FEJLÉCBEN áll, az űrlap alapból NYITVA. Ez a panel nem csak
+     kijelző: itt állítod a keresztet, tehát becsukva egy gyakori műveletbe kerülne
+     egy kattintással több. Aki mégis útban érzi, becsukhatja — és úgy is marad. -->
+<div class="card" id="cfgcard" style="display:none">
+  <h2>⚙ Configuration <span class="cfgsum" id="cfgsum"></span>
+    <button class="filt cfgtog" id="cfgtog" onclick="toggleCfg()">Hide</button></h2>
+  <div id="settings"></div>
+</div>
 <div class="grid" id="grid" style="display:none">
   <div class="gcol">
     <div class="card"><h2>Leg allocation</h2><div id="configs"></div></div>
@@ -1148,6 +1159,15 @@ function refreshAssetSel(){
  if(!va||!vb)return
  sel.innerHTML=assetOpts(va,vb,sel.value)
 }
+// Alapból NYITVA — a becsukás a felhasználó döntése, és megmarad.
+let cfgOpen=true
+try{cfgOpen=localStorage.getItem('dn_cfg_open')!=='0'}catch{}
+function applyCfgOpen(){
+ const s=document.getElementById('settings'),b=document.getElementById('cfgtog')
+ if(s)s.style.display=cfgOpen?'':'none'
+ if(b)b.textContent=cfgOpen?'Hide':'Edit'
+}
+function toggleCfg(){cfgOpen=!cfgOpen;try{localStorage.setItem('dn_cfg_open',cfgOpen?'1':'0')}catch{};applyCfgOpen()}
 async function saveSettings(){
  const b={capital_v:+document.getElementById("cv").value,capital_m:+document.getElementById("cm").value,margin_per_leg:+document.getElementById("ml").value,leverage:+document.getElementById("lv").value,mode:document.getElementById("md").value,same_asset:document.getElementById("sa").value,same_va:document.getElementById("sva").value,same_vb:document.getElementById("svb").value}
  b.wallet=(document.getElementById("wal")?document.getElementById("wal").value:"").trim()
@@ -1303,6 +1323,14 @@ async function load(force){
    +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"),' onchange="refreshAssetSel()"')+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal"),' onchange="refreshAssetSel()"'))
    +grp('Wallet','<div class="field" style="flex:1;min-width:240px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>')
    +'<button class="accent" onclick="saveSettings()">Save</button>'
+  // Az összefoglaló: ugyanaz négy számban, amit az űrlap nyolc mezőben mond.
+  // Becsukva ez marad látható, nyitva pedig fölösleges görgetés nélkül ellenőrizhető.
+  const cs=document.getElementById("cfgsum")
+  if(cs)cs.innerHTML='$'+(+st.capital_v).toLocaleString("en-GB")+' / $'+(+st.capital_m).toLocaleString("en-GB")
+   +' <span class="d">·</span> '+(d.mode==="same"?"Same-asset":"Pair")+' '+(st.leverage||3)+'×'
+   +' <span class="d">·</span> '+vNev(st.same_va||"Variational")+' → '+vNev(st.same_vb||"Aster")
+   +(d.mode==="same"?' <span class="d">·</span> '+((d.same&&d.same.asset)||st.same_asset||''):'')
+  applyCfgOpen()
  }catch(e){document.getElementById("alerts").innerHTML='<div class="alert red">⚠ Cannot reach the server / API error: '+e+'</div>'}
 }
 
