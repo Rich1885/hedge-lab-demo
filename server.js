@@ -1251,6 +1251,47 @@ async function cachedScan() {
   return _scanRunning
 }
 
+// ── ÉLŐ RÉS ────────────────────────────────────────────────────────────────
+// Egy teljes szken hét venue-t kérdez és ~5 másodperc, ezért a dashboard 90
+// másodpercenként frissül. Rés-vadászathoz ez használhatatlan: egy kör 4-12 órát
+// él, és a rés ez alatt annyit mozdul, amennyit a funding egy nap alatt fizet —
+// de a felületen ebből 90 másodpercenként egy pillanatkép látszik.
+//
+// Ez a végpont CSAK a beállított kereszt két venue-ját kérdezi le (2 hívás a 9
+// helyett), venue-nként 2,5 másodperces gyorsítótárral. A kliens 3 másodpercenként
+// kér, tehát két egyszerre nyitott fül sem szorozza a külső hívásokat, és a
+// Variational 10 kérés / 10 másodperc limitje alatt maradunk.
+const GAP_TTL_MS = 2500
+const _gapCache = {}   // megjelenítőnév → { at, data }
+// Venue-nként EGY hívás. Az edgeX szerződésenként kérdez, ezért kap szimbólumot —
+// így az is egyetlen kérés marad, nem a teljes lista.
+const GAP_FETCH = {
+  Variational: () => fetchVariational(),
+  Ethereal: () => fetchEthereal(),
+  Nado: () => fetchNado(),
+  Lighter: async () => (await fetchLighter()).lighter,
+  'Lighter-RH': () => fetchRhLighter(),
+  Aster: () => fetchAster(),
+  Phoenix: () => fetchPhoenix(),
+  edgeX: (sym) => fetchEdgex(new Set([sym])),
+}
+async function gapVenue(disp, sym) {
+  const c = _gapCache[disp]
+  if (c && Date.now() - c.at < GAP_TTL_MS) return c.data
+  const f = GAP_FETCH[disp]
+  if (!f) return c ? c.data : null
+  try {
+    const d = await f(sym)
+    _gapCache[disp] = { at: Date.now(), data: d }
+    return d
+  } catch {
+    // Hiba esetén a LEJÁRT gyorsítótárat adjuk vissza, nem null-t: egy elakadt
+    // kérés miatt ne tűnjön el a csík pont vadászat közben. A kliens a kor-
+    // számlálóból amúgy is látja, ha az adat megállt.
+    return c ? c.data : null
+  }
+}
+
 // A kérés-kezelő ITT áll önmagában, `.listen()` nélkül — így ugyanez a függvény
 // szolgálja ki a helyi `node server.js`-t (lásd a fájl végén) ÉS Vercelen a
 // serverless függvényt (api/index.js re-exportálja). A Vercel-verzió a
@@ -1293,6 +1334,26 @@ async function handler(req, res) {
       return res.end()
     }
     else if (url === '/api/scan') { json(await cachedScan()) }
+    // Élő rés a beállított keresztre. Szándékosan nem hív scan()-t: ha ez is a
+    // teljes kört indítaná, pont az ellenkezőjét érnénk el annak, amiért van.
+    else if (url === '/api/gap') {
+      const cfg = loadCfg()
+      const sym = String(cfg.same_asset || 'BTC').toUpperCase()
+      const vaN = cfg.same_va || 'Variational', vbN = cfg.same_vb || 'Aster'
+      const [A, B] = await Promise.all([gapVenue(vaN, sym), gapVenue(vbN, sym)])
+      const ar = (o) => { const x = o && o[sym]; const n = x ? Number(x.price) : NaN; return isFinite(n) && n > 0 ? n : null }
+      const pa = ar(A), pb = ar(B)
+      const marginLeg = cfg.margin_per_leg_usd || Math.min(cfg.capital_variational_usd, cfg.capital_meridian_usd) / 2
+      json({
+        ts: Date.now(), asset: sym,
+        va: { name: vaN, price: pa }, vb: { name: vbN, price: pb },
+        gap: priceGap(pa, pb),
+        entry_gap: cfg.entry_gap ?? null,
+        leg: marginLeg * (cfg.leverage || 3),
+        open: cfg.active_config === 'SAME',
+        short_on: cfg.same_short_on || null,
+      })
+    }
     // Csak a labor sajat mérése, semmi külső hívás — a dashboard 90 mp-enként kéri a
     // nyitott pozíció eszközére, tehát olcsónak kell lennie. A /api/dive ehhez képest
     // Hyperliquidet, Lighter-könyvet és Phoenixet is kérdez.

@@ -120,6 +120,18 @@ body{margin:0;background:
 .legc dd{margin:0;text-align:right;font-family:"Cascadia Mono",Consolas,monospace;font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums}
 .swapo{display:flex;align-items:center;justify-content:center}
 .swapo i{width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:13px;font-style:normal}
+/* ── élő rés-csík ──────────────────────────────────────────────────────────
+   A kártya többi része 90 mp-enként frissül, ez 3 másodpercenként — saját,
+   olcsó végpontról (/api/gap), ami csak a kereszt két venue-ját kérdezi. */
+.gaps{margin-top:16px;border:1px solid var(--line2);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.gaps .n{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--faint)}
+.gaps .px{display:flex;gap:16px;flex-wrap:wrap}
+.gaps .px .v{font-family:"Cascadia Mono",Consolas,monospace;font-weight:700;font-size:14px;margin-top:3px}
+.gaps .spark{flex:1;min-width:140px;height:34px;line-height:0}
+.gaps .now{text-align:right;min-width:104px}
+.gaps .now .v{font-family:"Cascadia Mono",Consolas,monospace;font-weight:800;font-size:20px;letter-spacing:-.6px;margin-top:3px}
+.gaps .age{font-size:10px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;margin-top:2px}
+.gaps .age.stale{color:var(--red);font-weight:700}
 .hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:24px;margin-top:24px;padding-top:18px;border-top:1px solid var(--sep)}
 .hstats .l{font-size:10px;text-transform:uppercase;letter-spacing:1.1px;color:var(--faint);font-weight:700}
 .hstats .v{font-size:19px;font-weight:700;margin-top:8px;letter-spacing:-.3px}
@@ -559,6 +571,12 @@ details.card>.body{padding-top:14px}
 .heatleg{display:flex;align-items:center;gap:9px;margin-top:11px;font-size:10.5px;color:var(--faint)}
 .heatleg .bar{height:7px;flex:1;border-radius:4px;background:linear-gradient(90deg,rgba(248,113,113,.5),rgba(248,113,113,.12),#ffffff08,rgba(74,222,128,.12),rgba(74,222,128,.5))}
 .topv td.pn{text-align:left;font-weight:700}
+/* Rendezhető fejléc. A nyíl ::after-ből jön, hogy a venue-fejlécek logós
+   belső markupját (.vhw) ne kelljen hozzányúlni. */
+th[data-sortable]{cursor:pointer;user-select:none}
+th[data-sortable]:hover{color:var(--tx)}
+th.sorted{color:var(--blue)}
+th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-align:middle}
 </style></head><body>
 <div class="side">
   <div class="sbrand"><span class="live"></span>HEDGE<b>LAB</b></div>
@@ -566,7 +584,7 @@ details.card>.body{padding-top:14px}
     <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si">▦</span>Dashboard</button>
     <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si">⇄</span>Pairs Scanner</button>
     <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si">★</span>Best Pairs</button>
-    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si">◎</span>Tracker</button>
+    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si">◎</span>Round</button>
     <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si">◷</span>History</button>
   </nav>
   <div class="sfoot"><a href="/">&larr; Overview</a></div>
@@ -722,6 +740,7 @@ details.card>.body{padding-top:14px}
   <div class="hbig" id="h_big"></div>
   <div class="hsub" id="h_sub"></div>
   <div class="legs" id="h_legs"></div>
+  <div class="gaps" id="gapstrip" style="display:none"></div>
   <div class="hstats" id="h_stats"></div>
   <div class="hnoterow"><div class="hnote" id="h_note"></div><div id="btns"></div></div>
 </div>
@@ -996,6 +1015,49 @@ async function deleteNaplo(id){
  if(!confirm("Delete this journal entry?"))return
  await fetch("/api/naplo/delete",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})})
  await loadNaplo()}
+// ── same-asset eszköz: legördülő, nem szabad szöveg ─────────────────────────
+// Szabad szövegmezőben egy elgépelés némán olyan keresztet állít be, ami nem
+// létezik — a panel utána "nem érhető el mindkét platformon" hibát ír, és nem
+// derül ki, hogy a szimbólum a hibás. A lista a KÉT KIVÁLASZTOTT venue közös
+// eszközeit adja, |spread| szerint csökkenően, mert úgyis a nagyot keresed.
+//
+// A forrás a rows[].aprs, mert ott egyszerre ott van mind a hét venue rátája
+// szimbólumonként. A Phoenix ebből kimarad (a scan VENUES-ében sincs benne),
+// ezért Phoenix-párnál a lista üres marad, és a mező visszaesik a jelenlegi
+// értékre — kevesebb baj, mint egy hiányos listát teljesnek mutatni.
+const AKEY={Variational:'Vari',Ethereal:'Ethereal',Nado:'Nado',Lighter:'Lighter','Lighter-RH':'RhLighter',Aster:'Aster',edgeX:'EdgeX'}
+function commonAssets(va,vb){
+ const a=AKEY[va],b=AKEY[vb]
+ if(!a||!b||a===b||!scanData||!scanData.rows)return null
+ const out=[]
+ for(const r of scanData.rows){
+  const x=r.aprs&&r.aprs[a],y=r.aprs&&r.aprs[b]
+  if(x==null||y==null)continue
+  out.push({sym:r.sym,spread:Math.abs(x-y),thin:!!r.thin})
+ }
+ return out.sort((p,q)=>q.spread-p.spread)
+}
+function assetOpts(va,vb,sel){
+ const list=commonAssets(va,vb)
+ const one=(v,t,s)=>'<option value="'+v+'"'+(s?' selected':'')+'>'+t+'</option>'
+ if(!list||!list.length)return one(sel,sel,true)
+ let html='',megvan=false
+ for(const it of list){
+  if(it.sym===sel)megvan=true
+  html+=one(it.sym,it.sym+' · '+(it.thin?'⚠ ':'')+(it.spread*100).toFixed(1)+'%',it.sym===sel)
+ }
+ // Ha a mentett eszköz nincs a listán, NEM írjuk felül némán egy másikra: bent
+ // marad kiválasztva, megjelölve — különben a mentés csendben mást állítana be,
+ // mint amit korábban választottál.
+ if(!megvan)html=one(sel,sel+' · not listed on this pair',true)+html
+ return html
+}
+function refreshAssetSel(){
+ const sel=document.getElementById('sa');if(!sel)return
+ const va=(document.getElementById('sva')||{}).value,vb=(document.getElementById('svb')||{}).value
+ if(!va||!vb)return
+ sel.innerHTML=assetOpts(va,vb,sel.value)
+}
 async function saveSettings(){
  const b={capital_v:+document.getElementById("cv").value,capital_m:+document.getElementById("cm").value,margin_per_leg:+document.getElementById("ml").value,leverage:+document.getElementById("lv").value,mode:document.getElementById("md").value,same_asset:document.getElementById("sa").value,same_va:document.getElementById("sva").value,same_vb:document.getElementById("svb").value}
  b.wallet=(document.getElementById("wal")?document.getElementById("wal").value:"").trim()
@@ -1102,7 +1164,7 @@ async function load(force){
   document.getElementById("state").innerHTML=posLine+rebLine
   const vopt=(sel)=>["Variational","Ethereal","Nado","Lighter","Lighter-RH","Aster","edgeX","Phoenix"].map(v=>'<option value="'+v+'"'+(v===sel?" selected":"")+'>'+v+'</option>').join("")
   const fi=(id,lab,val)=>'<div class="field"><input id="'+id+'" placeholder=" " value="'+val+'"><label>'+lab+'</label></div>'
-  const fs=(id,lab,opts)=>'<div class="field sel"><select id="'+id+'">'+opts+'</select><label>'+lab+'</label></div>'
+  const fs=(id,lab,opts,extra)=>'<div class="field sel"><select id="'+id+'"'+(extra||'')+'>'+opts+'</select><label>'+lab+'</label></div>'
   // Csoportosítva, nem egy nyolcmezős webform: a tőke, a stratégia és a venue-k
   // három külön döntés, és a user is így gondolkodik róluk.
   const grp=(cim,mezok)=>'<div class="sgroup"><div class="t-label">'+cim+'</div><div class="sfields">'+mezok+'</div></div>'
@@ -1110,8 +1172,8 @@ async function load(force){
    grp('Capital',fi("cv","Variational capital $",st.capital_v)+fi("cm","Ethereal capital $",st.capital_m)+fi("ml","Margin per leg $",st.margin_per_leg))
    +grp('Strategy',fi("lv","Leverage",st.leverage)
      +fs("md","Mode",'<option value="pair"'+(d.mode==="pair"?" selected":"")+'>pair (BTC/ETH cross)</option><option value="same"'+(d.mode==="same"?" selected":"")+'>same-asset (1 symbol, 2 venues)</option>')
-     +fi("sa","Same-asset symbol",d.same?d.same.asset:(st.same_asset||"ENA")))
-   +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"))+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal")))
+     +fs("sa","Same-asset symbol",assetOpts(st.same_va||"Variational",st.same_vb||"Ethereal",d.same?d.same.asset:(st.same_asset||"ENA"))))
+   +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"),' onchange="refreshAssetSel()"')+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal"),' onchange="refreshAssetSel()"'))
    +grp('Wallet','<div class="field" style="flex:1;min-width:240px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>')
    +'<button class="accent" onclick="saveSettings()">Save</button>'
  }catch(e){document.getElementById("alerts").innerHTML='<div class="alert red">⚠ Cannot reach the server / API error: '+e+'</div>'}
@@ -1294,7 +1356,7 @@ function renderStrat(){
    +'</div>'
  }).join('')||'<div class="hint">No pair matches the filter.</div>'
 }
-function setMSort(m){mSort=m;for(const x of['spread','tick'])document.getElementById('ms-'+x).classList.toggle('on',x===m);renderMulti()}
+function setMSort(m){mSort=m;delete SORT['mrows'];for(const x of['spread','tick'])document.getElementById('ms-'+x).classList.toggle('on',x===m);renderMulti()}
 // A kold-start magyarázat csak addig kell, amíg tényleg várni kell rá — az első
 // sikeres szkennelés után eltűnik, a rendes intro-szöveg marad a helyén.
 function hideLoadgate(){const g=document.getElementById('loadgate');if(g)g.style.display='none'}
@@ -1314,6 +1376,11 @@ function renderMulti(){
  if(mSort==='tick'){src=[...src].sort((a,b)=>{
    const ta=tickUsdOf(a,leg),tb=tickUsdOf(b,leg)
    return (tb?tb.usd:-1)-(ta?ta.usd:-1)})}
+ // Fejléc-rendezés, ha van: felülírja a Spread/Tick gombokat (azok viszont törlik,
+ // lásd setMSort) — két egyidejű sorrend csak zavarna.
+ const mk=(r)=>[r.sym,r.cat].concat(MVENUES.map(k=>r.aprs?r.aprs[k]:null)).concat([r.maxLev])
+ src=applySort('mrows',src.map(r=>({r,k:mk(r)}))).map(x=>x.r)
+ sortHead('#scantab-multi table','mrows',renderMulti)
  document.getElementById('mrows').innerHTML=src.slice(0,40).map(r=>{
   return '<tr style="cursor:pointer" onclick="diveInto(\''+r.sym+'\')"><td>'+symCell(r)+'</td><td>'+catBadge(r.cat)+'</td>'
   +MVENUES.map(k=>venueCell(r,k)).join('')+levCell(r,leg)+'</tr>'
@@ -1366,6 +1433,7 @@ function showPage(p){
   if(p==='strat')renderStrat()
   if(p==='pairs')renderPairs()
   if(p==='dash')renderDash()
+  if(p==='track')pollGap()   // ne kelljen három másodpercet várni az első értékre
 }
 // A belső venue-név a VKEY/lastVenues kulcsa (RhLighter), a kiirt név viszont az,
 // amit a beállítások legördülőjében is látsz (Lighter-RH) — különben kétféleképpen
@@ -1426,6 +1494,45 @@ function renderPhx(){
 // egymás másolata lett; az Aster és az edgeX nem másolja őket negyedszer-ötödször.
 // A backend buildVariCross-a semleges mezőneveket ad (vApr/oApr, vVol/oVol), ezért
 // ugyanez a kód szolgálja ki mindkét fület — csak a cfg más.
+// ── RENDEZHETŐ OSZLOPOK ─────────────────────────────────────────────────────
+// A rendezés az ADATON történik, nem a kész <tr>-eken.
+//
+// A szülő projektben a DOM-ot rendeztük át, és mellé kellett egy MutationObserver,
+// ami a 90 mp-es újrarenderelés után visszatette a sorrendet. Az observer viszont a
+// SAJÁT sormozgatására is elsült — végtelen ciklus, kétszer lefagyasztotta az oldalt.
+// (Egy "épp rendezek" zászló nem old meg: a visszahívás mikrotask, mire a rekordok
+// megérkeznek, a zászló már false; ott disconnect/observe kellett.)
+//
+// Adatból renderelve az egész probléma megszűnik: a render maga rendez, tehát a
+// frissítés megőrzi a sorrendet anélkül, hogy bárki visszaállítaná.
+const SORT={}   // tbodyId → {col, dir}
+function sortBy(bodyId,col,rerender){
+ const s=SORT[bodyId]
+ SORT[bodyId]=(s&&s.col===col)?{col,dir:-s.dir}:{col,dir:-1}   // első kattintás: csökkenő
+ rerender()
+}
+function sortHead(tableSel,bodyId,rerender){
+ const t=document.querySelector(tableSel);if(!t)return
+ t.querySelectorAll('thead th').forEach((th,i)=>{
+  if(!th.dataset.sortable){th.dataset.sortable='1';th.addEventListener('click',()=>sortBy(bodyId,i,rerender))}
+  const s=SORT[bodyId]
+  th.classList.toggle('sorted',!!s&&s.col===i)
+  th.dataset.dir=(s&&s.col===i)?(s.dir<0?'▼':'▲'):''
+ })
+}
+// A szám nélküli cella MINDIG a lista aljára esik, akármelyik irányba rendezel —
+// különben csökkenő sorrendben a hiányzó adat kerülne előre.
+function applySort(bodyId,items){
+ const s=SORT[bodyId];if(!s)return items
+ return items.slice().sort((a,b)=>{
+  const x=a.k[s.col],y=b.k[s.col]
+  if(x==null&&y==null)return 0
+  if(x==null)return 1
+  if(y==null)return -1
+  return (x<y?-1:x>y?1:0)*s.dir
+ })
+}
+
 // ── DASHBOARD · áttekintő ───────────────────────────────────────────────────
 // Mi számít "lehetőségnek"? NEM tetszőleges küszöb: a napló szerint a szűk-spreades
 // körök rendre elkoptak a venue-súrlódáson (5. kör −$5, 4. kör −$2,6, mindkettő
@@ -1569,6 +1676,13 @@ function renderPairs(){
   ['Updated',String(scanData.time||'').split(' ').pop()||'—',(scanData.histHours||0)+'h of history'],
  ].map(([l,v,s])=>'<div class="kpi"><div class="t-label">'+l+'</div><div class="t-data" style="font-size:23px;margin-top:6px">'+v+'</div><div class="t-meta sub">'+s+'</div></div>').join('')
  if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="d" style="padding:28px;text-align:center">No pair matches the filters.</td></tr>';return}
+ // Rendezés a TELJES szűrt listán, és csak utána vágunk 80-ra — különben a
+ // "legnagyobb $/nap" az első 80 spread szerinti soron belüli maximum lenne.
+ // A kulcsok sorrendje a fejléc oszlopaival egyezik.
+ const kulcs=(r)=>[r.sym,r.cat,r.vApr,r.oApr,Math.abs(r.diff),r.gap,r.pair.short,
+                   leg*Math.abs(r.diff)/365,r.maxLev,r.avg7d,r.ageH]
+ rows=applySort('prows',rows.map(r=>({r,k:kulcs(r)}))).map(x=>x.r)
+ sortHead('#pg-pairs table','prows',renderPairs)
  tb.innerHTML=rows.slice(0,80).map(r=>{
   const usdDay=leg*Math.abs(r.diff)/365,t=tickUsdOf(r,leg)
   return '<tr style="cursor:pointer" onclick="diveInto(\''+r.sym+'\')">'
@@ -1622,6 +1736,9 @@ async function loadScan(){
   scanData=d
   document.getElementById('scancard').style.display=""
   renderDash();renderMulti();renderStrat();renderPairs()
+  // A Beállítások a /api/data-ból renderelődik, ami HAMARABB megjön, mint a
+  // /api/scan — ezért az eszközlista első renderkor még üres. Itt töltjük fel.
+  refreshAssetSel()
  }catch(e){}
 }
 // Folyó mérések: mire várunk és mikortól válaszolható. Azért a dashboardon van és nem
@@ -1705,6 +1822,61 @@ function heroNote(sm,tick){
  if(sm.used!=null&&sm.used>=0.5) return ['warn','~','Drift is at '+Math.round(sm.used*100)+'% of the liquidation distance — prepare to rebalance.']
  if(Math.abs(sm.diff)<0.10) return ['warn','↓','A spread '+pct(Math.abs(sm.diff),1)+' — find a better pair in the scanner.']
  return ['ok','✓','Nothing to do — carry is stable, spread is fine']
+}
+// ── ÉLŐ RÉS-CSÍK ────────────────────────────────────────────────────────────
+// A minták KLIENS-oldalon gyűlnek, és a fül bezárásakor elvesznek. Ez szándékos:
+// műszer, nem tár. A hosszú távú rés-történet a labHist-ben és a mélyfúrásban él;
+// itt egy tíz perces görgő ablak kell, mert a belépés-kilépés döntése percekben
+// dől el, nem napokban.
+let GAPBUF=[],GAPENTRY=null,GAPLAST=null,gapLastOk=0
+function gapSpark(w,h){
+ const t0=Date.now()-600000
+ const pts=GAPBUF.filter(p=>p.t>=t0)
+ if(pts.length<2)return ''
+ const ys=pts.map(p=>p.gap)
+ let lo=Math.min.apply(null,ys),hi=Math.max.apply(null,ys)
+ // A belépő rés is beleszámít a tartományba, különben kilóghatna a képből —
+ // épp ahhoz képest akarod nézni, hol jár most.
+ if(GAPENTRY!=null){lo=Math.min(lo,GAPENTRY);hi=Math.max(hi,GAPENTRY)}
+ if(hi-lo<1e-12)hi=lo+1e-12
+ const X=(t)=>((t-t0)/600000)*w,Y=(v)=>h-((v-lo)/(hi-lo))*(h-3)-1.5
+ const d=pts.map((p,i)=>(i?'L':'M')+X(p.t).toFixed(1)+' '+Y(p.gap).toFixed(1)).join(' ')
+ const be=GAPENTRY==null?'':'<line x1="0" y1="'+Y(GAPENTRY).toFixed(1)+'" x2="'+w+'" y2="'+Y(GAPENTRY).toFixed(1)+'" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity=".45"/>'
+ return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none" style="color:var(--dim)">'
+  +be+'<path d="'+d+'" fill="none" stroke="var(--blue)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>'
+}
+function renderGapStrip(d){
+ const el=document.getElementById('gapstrip');if(!el)return
+ if(!d){el.style.display='none';return}
+ el.style.display=''
+ const ar=(p)=>p==null?'—':'$'+(p<1?p.toFixed(6):p.toLocaleString('en-GB',{maximumFractionDigits:2}))
+ const dollar=d.gap!=null?Math.abs(d.leg*d.gap):null
+ const kor=gapLastOk?Math.round((Date.now()-gapLastOk)/1000):null
+ // 15 másodperc fölött piros: befagyott számot ne nézzen élőnek senki.
+ const all=kor==null||kor>15
+ el.innerHTML='<div class="px">'
+  +'<div><div class="n">'+d.va.name+'</div><div class="v">'+ar(d.va.price)+'</div></div>'
+  +'<div><div class="n">'+d.vb.name+'</div><div class="v">'+ar(d.vb.price)+'</div></div></div>'
+  +'<div class="spark">'+gapSpark(240,34)+'</div>'
+  +'<div class="now"><div class="n">Live gap</div>'
+  +'<div class="v '+(d.gap==null?'d':d.gap>0?'g':'r')+'">'+(d.gap==null?'—':(d.gap>0?'+':'−')+(Math.abs(d.gap)*100).toFixed(3)+'%')+'</div>'
+  +'<div class="age'+(all?' stale':'')+'">'+(dollar!=null?'$'+dollar.toFixed(2)+' · ':'')+(kor==null?'no data':kor+'s ago')+'</div></div>'
+}
+async function pollGap(){
+ // Csak akkor kérdezünk, ha a csík látszik. Háttérfülből percenként húsz kérést
+ // küldeni a tőzsdékre olyasmiért, amit senki nem néz, felesleges terhelés.
+ if(curPage!=='track'||document.hidden)return
+ try{
+  const d=await (await fetch('/api/gap')).json()
+  if(!d.error){
+   GAPENTRY=d.entry_gap
+   if(d.gap!=null){GAPBUF.push({t:d.ts,gap:d.gap});const t0=Date.now()-600000;GAPBUF=GAPBUF.filter(p=>p.t>=t0);gapLastOk=Date.now()}
+   GAPLAST=d
+  }
+ }catch{}
+ // A hibaágon is renderelünk: így a kor-számláló tovább nő és pirosra vált,
+ // ahelyett hogy az utolsó jó érték élőnek látszana.
+ renderGapStrip(GAPLAST)
 }
 function renderHero(d,sm,st){
  const el=document.getElementById('hero');if(!el)return
@@ -1969,4 +2141,7 @@ function restoreLegs(){
 restoreLegs()
 // a napló-típus is ott marad, ahol utoljára hagytad
 loadMe();load();loadNaplo();airdropPlat();loadScan();setInterval(load,90000);setInterval(loadScan,90000)
+// Az élő rés a többinél harmincszor sűrűbben frissül — de csak amíg a Kör lapon
+// állsz és a fül elöl van (lásd pollGap).
+setInterval(pollGap,3000)
 </script></body></html>
