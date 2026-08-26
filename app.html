@@ -421,6 +421,15 @@ details.card>.body{padding-top:14px}
 .tacc{font-size:11.5px;margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
 .taccsum{flex-basis:100%;font-size:12.5px;padding:8px 12px;margin-top:4px;background:var(--card2);border:1px solid var(--line);border-radius:var(--r-sm)}
 .taccsum b{font-size:14px}
+/* ── FUNDING FLOW ─────────────────────────────────────────────────────────── */
+.ffhead{flex-basis:100%;margin-bottom:2px}
+.ffhead .t-meta{margin-top:3px}
+.fbars{flex-basis:100%;margin-bottom:4px}
+.fbars svg{display:block}
+.fcap{display:flex;justify-content:space-between;font-size:10px;font-family:"Cascadia Mono",Consolas,monospace;margin-top:3px}
+.ftiles{flex-basis:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:4px}
+.ftile{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px}
+.ftile .v{font-size:16px;font-weight:800;letter-spacing:-.4px;margin-top:4px}
 /* Chart-magyarázat: egy nap kihagyás után sem kell találgatni, mit néz az ember. */
 .chexp{font-size:11.5px;line-height:1.5;color:var(--dim);margin-top:6px;padding:8px 11px;background:rgba(255,255,255,.025);border-left:2px solid var(--line2);border-radius:0 var(--r-xs) var(--r-xs) 0}
 .chexp b{color:var(--tx)}
@@ -897,10 +906,46 @@ async function act(what,cfg){await fetch("/api/"+what,{method:"POST",headers:{"C
 // ── funding-tick visszaszámláló (valódi intervallum, UTC-hez igazítva) ──
 function nextTickMs(ivS){const iv=ivS*1000;return Math.ceil(Date.now()/iv)*iv}
 function fmtCd(ms){const s=Math.max(0,Math.floor(ms/1000));return String(Math.floor(s/3600)).padStart(2,"0")+":"+String(Math.floor(s%3600/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
+// ── FUNDING FLOW ────────────────────────────────────────────────────────────
+// A funding ÁRAMLÁSA óránkénti mérésekből: mennyit hoz vagy visz a lábad.
+// A szín NEM az előjelet mutatja, hanem hogy TE kapod-e — ugyanaz a negatív ráta
+// a shortnak fizetés, a longnak bevétel, tehát a két oldalon ellentétes a színe.
+// Ezért kell a shortOnVari: a sorozat a Vari rátája, a kérdés meg az, hogy te
+// melyik oldalon ülsz rajta.
+function fundBars(vals,leg,shortOnVari,w,h){
+  const idx=vals.map((x,i)=>x==null?-1:i).filter(i=>i>=0)
+  if(idx.length<2)return ''
+  const usd=idx.map(i=>leg*vals[i]/8760)
+  const kap=idx.map(i=>(vals[i]>0)===shortOnVari)
+  const M=Math.max.apply(null,usd.map(Math.abs))||1e-9
+  const n=idx.length,bw=w/n,y0=h/2
+  let bars=''
+  for(let k=0;k<n;k++){
+    const bh=Math.max(1,Math.abs(usd[k])/M*(h/2-3)),up=kap[k]
+    bars+='<rect x="'+(k*bw+bw*0.18).toFixed(1)+'" y="'+(up?y0-bh:y0).toFixed(1)+'" width="'+Math.max(1,bw*0.64).toFixed(1)
+      +'" height="'+bh.toFixed(1)+'" fill="'+(up?'#4ade80':'#f87171')+'" opacity=".85"/>'
+  }
+  const mx=leg*Math.max.apply(null,vals.filter(x=>x!=null).map(Math.abs))/8760
+  return '<div class="fbars"><svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none">'
+    +bars+'<line x1="0" y1="'+y0+'" x2="'+w+'" y2="'+y0+'" stroke="#2a2740" stroke-width="1"/></svg>'
+    +'<div class="fcap"><span class="g">▲ you receive</span><span class="d">peak $'+mx.toFixed(3)+'/h</span><span class="r">you pay ▼</span></div></div>'
+}
 function renderTicks(){
   const el=document.getElementById("tickwrap");if(!el)return
   const legs=TICKDATA.legs||[]
-  el.innerHTML=legs.map((L,i)=>{
+  // Melyik oldalon ülsz a Vari rátáján? Nyitva a rögzített láb, előtte az ajánlott.
+  const vL=legs.find(L=>L.venue==='Variational')
+  const shortOnVari=vL&&vL.side?vL.side==='SHORT'
+    :!!(MEASD&&MEASD.same&&MEASD.same.short_on==='Variational')
+  const leg=(MEASD&&MEASD.same&&MEASD.same.leg_notional)||3000
+  let fej=''
+  if(MEASS&&MEASS.v){
+    fej='<div class="ffhead"><div class="t-label">Funding flow</div>'
+      +'<div class="t-meta">hourly measurements, on your side of the trade — '
+      +(shortOnVari?'you are SHORT Variational':'you are LONG Variational')+'</div></div>'
+      +fundBars(MEASS.v,leg,shortOnVari,600,72)
+  }
+  el.innerHTML=fej+legs.map((L,i)=>{
     const ivH=(L.ivS/3600).toFixed(0)
     let advice='<span class="d">no open leg here</span>',amount=''
     // Ha az eszköz nincs ezen a platformon, azt ki kell mondani — korábban ez a kártya
@@ -947,6 +992,19 @@ function renderTicks(){
     // az Aster 1h), egy közös darabszám értelmetlen. Labánként viszont ott a szám.
     return '<div class="taccsum">funding '+(POS.open?'since the round opened':'in the last round')+': <b class="'+(j?'g':'r')+'">'+(j?'+':'−')+'$'+Math.abs(ossz).toFixed(2)+'</b>'
       +' <span class="d">'+v.map(L=>L.venue+' '+(L.acc_usd>=0?'+':'−')+'$'+Math.abs(L.acc_usd).toFixed(2)+' ('+L.acc_ticks+' tick)').join(' · ')+'</span></div>'
+  })()+(function(){
+    // A három szám, ami a tick-fogás matekját adja. A Vari lábról, mert a
+    // pillanatkép-alapú tick ott a tét — a többi venue óránként csöpögtet.
+    if(!vL)return ''
+    const ivH=Math.round(vL.ivS/3600)
+    const kap=vL.side&&vL.apr!=null?((vL.side==='SHORT')===(vL.apr>0)):null
+    const t=vL.tick_usd
+    const cella=(l,v,c)=>'<div class="ftile"><div class="t-label">'+l+'</div><div class="v mono '+(c||'')+'">'+v+'</div></div>'
+    return '<div class="ftiles">'
+      +cella('Est. next tick',t==null?'—':(kap==null?'':kap?'+$':'−$')+(kap==null?'$'+t.toFixed(2):t.toFixed(2)),kap==null?'d':kap?'g':'r')
+      +cella('Tick interval',ivH+'h','d')
+      +cella('Funding rate',vL.apr==null?'—':pct(vL.apr,2),vL.apr==null?'d':vL.apr>=0?'g':'r')
+      +'</div>'
   })()+'<div class="hint" style="flex-basis:100%;margin-top:2px"><b>Variational funding is snapshot-based</b> (4h crypto, 8h RWA): being in position at the tick in instant earns the whole interval. The other venues tick in hourly, where the stakes are small and timing rarely pays. While you sit a leg out to dodge a tick in you are <b>unhedged</b> on the other: the basis can move more in those hours than the funding you saved.</div>'
 }
 function tickLoop(){for(let i=0;i<2;i++){const el=document.getElementById("cd-"+i);if(!el)continue;const iv=+el.dataset.iv;if(!iv)continue;const ms=nextTickMs(iv)-Date.now();el.textContent=fmtCd(ms);el.classList.toggle("y",ms<600000)}}
@@ -1878,6 +1936,10 @@ async function renderMeasBar(d){
    +dline(vs,tt,'#f59e0b',(x)=>(x*100).toFixed(0)+'%',entryTs)+'</div>'
  }
  el.innerHTML=h
+ // A funding-oszlopok ugyanebből a sorozatból élnek, a renderTicks viszont a
+ // load()-ban HAMARABB fut, mint ahogy ez a fetch visszaér — ezért onnan még üres
+ // a diagram. Itt, a sorozat megérkezése után újrarajzoljuk.
+ if(TICKDATA&&TICKDATA.legs)renderTicks()
 }
 // ── EXPECTED HOLD ───────────────────────────────────────────────────────────
 // "Ha most nyitom és 8 órát tartom, mi jön ki?" — ez a valódi kérdés, nem az,
