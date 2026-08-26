@@ -436,7 +436,14 @@ details.card>.body{padding-top:14px}
 .fbars{margin-bottom:2px}
 .fchart{display:flex;gap:8px}
 .fchart svg{display:block;flex:1;min-width:0}
-.fyax{display:flex;flex-direction:column;justify-content:space-between;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;text-align:right;min-width:46px}
+.fyax{display:flex;flex-direction:column;justify-content:space-between;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;text-align:right;min-width:52px}
+/* A két napi összeg a diagram fölött, középen a csere-ikonnal — ez a fejléc
+   mondja meg egy pillantásra, melyik láb hoz és melyik visz. */
+.fnets{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.fnet .v{font-size:20px;font-weight:800;letter-spacing:-.6px;margin:3px 0 2px}
+.fnet .v .d{font-size:12px;font-weight:600}
+.fnet.g .v{color:var(--green)} .fnet.r .v{color:var(--red)}
+.fswap{width:28px;height:28px;border-radius:50%;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:13px;flex:none}
 .fxax{display:flex;justify-content:space-between;gap:6px;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;margin:4px 0 0 54px;white-space:nowrap;overflow:hidden}
 .fxax .now{color:var(--dim);font-weight:700}
 .fcap{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-family:"Cascadia Mono",Consolas,monospace;margin:5px 0 0 54px;white-space:nowrap;overflow:hidden}
@@ -831,6 +838,16 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
     <button class="filt cfgtog" id="cfgtog" onclick="toggleCfg()">Hide</button></h2>
   <div id="settings"></div>
 </div>
+<!-- A pozíció-kártya TELJES SZÉLESSÉGŰ, nem a jobb oszlopban ül. A funding-diagram
+     időtengelyt és tíz-húsz oszlopot akar megmutatni; egy féloszlopnyi helyen az
+     még akkor is összenyomódik, ha van elég adat. -->
+<div class="card featured" id="poscard" style="display:none"><h2>⚖ Position</h2>
+  <div class="tickwrap" id="tickwrap"></div>
+  <div class="posfoot">
+    <div><div class="t-label">Position</div><div id="state" style="font-size:14px;margin-top:6px"></div></div>
+    <div class="hint" id="tickhint"></div>
+  </div>
+</div>
 <div class="grid" id="grid" style="display:none">
   <div class="gcol">
     <div class="card"><h2>Leg allocation</h2><div id="configs"></div></div>
@@ -839,18 +856,9 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
          stopok a méretezés lábjegyzetének látszottak. -->
     <div class="card"><h2>Position sizing</h2><div id="sizing"></div></div>
     <div class="card"><h2>Risk management</h2><div id="risk"></div></div>
-    <div class="card"><div class="measbar" id="measbar"></div></div>
   </div>
   <div class="gcol" id="ctrlcol">
-    <!-- A funding-áramlás KERÜLT ELŐRE, a pozíció-sor és a magyarázat mögé: a
-         visszaszámláló és a tick értéke az, amiért ezt a kártyát megnyitod, az
-         "Active config" sor pedig emlékeztető. -->
-    <div class="card featured"><h2>⚖ Position</h2>
-      <div class="tickwrap" id="tickwrap"></div>
-      <div class="posfoot">
-        <div><div class="t-label">Position</div><div id="state" style="font-size:14px;margin-top:6px"></div></div>
-        <div class="hint" id="tickhint"></div>
-      </div></div>
+    <div class="card"><div class="measbar" id="measbar"></div></div>
   </div>
 </div>
 </section>
@@ -982,24 +990,39 @@ function fundBars(vals,ts,leg,shortOnVari,w,h){
   // Egy közös csúcs elrejtené, ha az egyik oldal sokkal nagyobb a másiknál.
   const kapV=usd.filter((x,i)=>kap[i]).map(Math.abs),fizV=usd.filter((x,i)=>!kap[i]).map(Math.abs)
   const maxKap=kapV.length?Math.max.apply(null,kapV):null,maxFiz=fizV.length?Math.max.apply(null,fizV):null
-  // Idő-tengely a tényleges időtartamból, nem fixen "12h ago"-ból.
+  // Idő-tengely a TÉNYLEGES időtartamból. Ha az egész alig egy óra (mert csak pár
+  // mérés van), akkor percben — négyszer kiírni, hogy "0h ago", rosszabb a semminél.
   const t0=ts&&ts[idx[0]],t1=ts&&ts[idx[n-1]]
   let xax=''
-  if(t0&&t1){
-    const ossz=(t1-t0)/3600000
-    const cim=[]
-    for(let k=4;k>=1;k--)cim.push('<span>'+Math.round(ossz*k/4)+'h ago</span>')
+  if(t0&&t1&&t1>t0){
+    const percOssz=(t1-t0)/60000
+    const cim=[],cimke=(m)=>m>=90?Math.round(m/60)+'h ago':Math.round(m)+'m ago'
+    for(let k=4;k>=1;k--)cim.push('<span>'+cimke(percOssz*k/4)+'</span>')
     cim.push('<span class="now">NOW</span>')
     xax='<div class="fxax">'+cim.join('')+'</div>'
   }
-  const fmt=(v)=>(v==null?'—':'$'+v.toFixed(v<0.1?3:2))
+  const fmt=(v)=>(v==null?'—':'$'+v.toFixed(Math.abs(v)<0.1?3:2))
+  // Öt osztás, mint a mockupon — a fél-értékek adják a léptéket, két szélső szám
+  // önmagában nem mondja meg, hol tart egy közepes oszlop.
+  const yl=[M,M/2,0,-M/2,-M].map(v=>'<span>'+(v===0?'$0.00':(v<0?'−':'')+fmt(Math.abs(v)))+'</span>').join('')
   return '<div class="fbars"><div class="fchart">'
-    +'<div class="fyax"><span>'+fmt(M)+'</span><span>$0.00</span><span>−'+fmt(M)+'</span></div>'
+    +'<div class="fyax">'+yl+'</div>'
     +'<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none">'
+    +'<line x1="0" y1="'+(h*0.25)+'" x2="'+w+'" y2="'+(h*0.25)+'" stroke="#1e1b33" stroke-width="1"/>'
+    +'<line x1="0" y1="'+(h*0.75)+'" x2="'+w+'" y2="'+(h*0.75)+'" stroke="#1e1b33" stroke-width="1"/>'
     +bars+'<line x1="0" y1="'+y0+'" x2="'+w+'" y2="'+y0+'" stroke="#2a2740" stroke-width="1"/></svg></div>'
     +xax
     +'<div class="fcap"><span class="g">▲ you receive'+(maxKap!=null?' <span class="d">peak '+fmt(maxKap)+'/h</span>':'')+'</span>'
     +'<span class="r">'+(maxFiz!=null?'<span class="d">peak '+fmt(maxFiz)+'/h</span> ':'')+'you pay ▼</span></div></div>'
+}
+// A két láb NAPI hozzájárulása külön: az egyiken kapsz, a másikon fizetsz, és a
+// kettő különbsége a nettó. Egyetlen nettó szám elrejti, ha az egyik láb sokat hoz,
+// a másik meg majdnem ugyanannyit visz — az a felállás bármikor átfordulhat.
+function legDaily(sm){
+ if(!sm)return null
+ const n=sm.leg_notional
+ return {short:{venue:sm.open?sm.opened_short_on:sm.short_on,usd:n*sm.short_apr/365},
+         long:{venue:sm.open?(sm.opened_short_on===sm.va_name?sm.vb_name:sm.va_name):sm.long_on,usd:-n*sm.long_apr/365}}
 }
 function renderTicks(){
   const el=document.getElementById("tickwrap");if(!el)return
@@ -1029,13 +1052,23 @@ function renderTicks(){
     // A funding-sorozat UGYANAZT az ablakot kapja, mint a rés-chartok — egy lapon
     // két különböző időtávot nézni félrevezet.
     const w=winIdx(MEASS.t)
+    const ld=legDaily(MEASD&&MEASD.same)
+    // A mockup fejléce: a két oldal napi összege a diagram FÖLÖTT, nem apró
+    // felirat alatta. Ez az a két szám, amiért a kártyát megnyitod.
+    const oldal=(o,kap)=>o?'<div class="fnet '+(kap?'g':'r')+'"><div class="t-label">'+(kap?'You receive':'You pay')+'</div>'
+      +'<div class="v mono">'+(o.usd>=0?'+$':'−$')+Math.abs(o.usd).toFixed(2)+' <span class="d">/day</span></div>'
+      +'<div class="t-meta">'+vNev(o.venue)+'</div></div>':''
+    const kapo=ld?(ld.short.usd>=ld.long.usd?ld.short:ld.long):null
+    const fizeto=ld?(ld.short.usd>=ld.long.usd?ld.long:ld.short):null
     fej='<div class="ffgrid"><div class="ffmain">'
       +'<div class="ffhead"><span class="t-label">Funding flow</span>'
       +'<span class="t-meta">hourly, on your side — you are '+(shortOnVari?'SHORT':'LONG')+' Variational</span>'
       +'<span class="winsel">'+win(1,'1H')+win(4,'4H')+win(8,'8H')+win(12,'12H')+'</span></div>'
-      // Ha az ablakba nem fért elég mérés, a tengely a TELJES sorozatot címkézi —
-      // a gomb ilyenkor ne látsszon úgy, mintha az mutatna. Kimondjuk.
-      +(w.szuk?'':'<div class="winnote" style="margin:0 0 9px">Fewer than two measurements inside that window — the axis below covers everything recorded.</div>')
+      +(ld?'<div class="fnets">'+oldal(kapo,true)+'<span class="fswap">⇄</span>'+oldal(fizeto,false)+'</div>':'')
+      // Kevés mérésből nem lesz szép diagram, akárhogy rajzolom. Ha nyolcnál
+      // kevesebb pont esik az ablakba, kimondjuk, hányból dolgozunk — különben
+      // két kövér hasáb úgy néz ki, mintha a felület lenne rossz.
+      +(w.szuk?'':'<div class="winnote" style="margin:0 0 9px">Only '+w.ablakban+' measurement'+(w.ablakban===1?'':'s')+' inside '+posWin+'H — showing all '+w.keep.length+' instead. The shape needs continuous hourly data: the demo ships a seed and only keeps measuring while the server stays up.</div>')
       +fundBars(w.keep.map(i=>MEASS.v[i]),w.keep.map(i=>MEASS.t[i]),leg,shortOnVari,600,76)
       +'</div><div class="fftiles">'
       +csempe('Next funding','<span id="cd-next">--:--:--</span>',kov?kov.venue:'—')
@@ -1107,8 +1140,11 @@ function winIdx(ts){
  const eTs=(MEASD&&MEASD.same&&MEASD.same.entry_ts)||null
  const tMin=(posWin==='entry'&&eTs)?eTs-1800000:tMax-(+posWin||12)*3600000
  let keep=ts.map((t,i)=>t>=tMin?i:-1).filter(i=>i>=0)
- if(keep.length<2)return {keep:ts.map((t,i)=>i),szuk:false}
- return {keep,szuk:true}
+ // NYOLC a küszöb, nem kettő. Két mérésből a diagram két kövér hasáb lesz, az
+ // időtengely meg négyszer írja ki ugyanazt — az nem "kevés adat", az egy elrontott
+ // felületnek NÉZ KI. Ilyenkor inkább a teljes sorozatot mutatjuk, és megmondjuk.
+ if(keep.length<8)return {keep:ts.map((t,i)=>i),szuk:false,ablakban:keep.length}
+ return {keep,szuk:true,ablakban:keep.length}
 }
 function tickLoop(){
  let min=null
@@ -1269,6 +1305,7 @@ async function load(force){
   if(d.error)throw d.error
   document.getElementById("ts").textContent=d.time
   document.getElementById("grid").style.display="";document.getElementById("cfgcard").style.display=""
+  document.getElementById("poscard").style.display=""
   document.getElementById("kpis").style.display="none"
   document.getElementById("t_btc").innerHTML="<span class='sym'>BTC-USD</span><span class='mono'>$"+Math.round(d.sizing.btc_px).toLocaleString("en-GB")+"</span>"
   document.getElementById("t_eth").innerHTML="<span class='sym'>ETH-USD</span><span class='mono'>$"+d.sizing.eth_px.toFixed(2)+"</span>"
