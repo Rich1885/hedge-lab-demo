@@ -172,7 +172,10 @@ function recordSnapshot(vari, eth, nado, lighter, phoenix, aster, edgex, rhlight
   const putP = (sym, key, val) => { const n = Number(val); if (!isFinite(n) || n <= 0) return; (d[sym] = d[sym] || {})[key] = +n.toFixed(6) }
   for (const [s, x] of Object.entries(vari)) if (x.vol !== 0) { put(s, 'v', x.apr); putP(s, 'pv', x.price) }
   for (const [s, x] of Object.entries(eth)) if (x.vol !== 0) put(s, 'e', x.apr)
-  for (const [s, x] of Object.entries(nado)) if (x.vol !== 0) put(s, 'n', x.apr)
+  // A Nado ÁRA is kell, nem csak a fundingja: enélkül a Vari+Nado résnek nincs
+  // története, tehát se chart, se medián-statisztika nem számolható rá — pedig a
+  // kereszt-tábláján élőben ott a Gap oszlop.
+  for (const [s, x] of Object.entries(nado)) if (x.vol !== 0) { put(s, 'n', x.apr); putP(s, 'pn', x.price) }
   for (const [s, x] of Object.entries(lighter)) if (x.vol !== 0) { put(s, 'l', x.apr); putP(s, 'pl', x.price) }
   for (const [s, x] of Object.entries(phoenix || {})) { put(s, 'x', x.apr); putP(s, 'px', x.price) }
   for (const [s, x] of Object.entries(aster || {})) { put(s, 'a', x.apr); putP(s, 'pa', x.price) }
@@ -855,7 +858,7 @@ function bookImpact(levels, legUsd) {
 // Ez a labor SAJÁT mérése — pontosabb a döntéshez, mint a Hyperliquid proxy, mert
 // azokon a platformokon mér, ahol ténylegesen nyitsz.
 function diveSeries(sym) {
-  const t = [], v = [], gLi = [], gPhx = [], gAst = [], gEdx = [], gRhl = []
+  const t = [], v = [], gLi = [], gPhx = [], gAst = [], gEdx = [], gRhl = [], gNad = []
   for (const row of labHist) {
     const x = row.d[sym]
     if (!x) continue
@@ -866,8 +869,9 @@ function diveSeries(sym) {
     gAst.push(x.pv != null && x.pa > 0 ? (x.pv - x.pa) / x.pa : null)
     gEdx.push(x.pv != null && x.pg > 0 ? (x.pv - x.pg) / x.pg : null)
     gRhl.push(x.pv != null && x.pr > 0 ? (x.pv - x.pr) / x.pr : null)
+    gNad.push(x.pv != null && x.pn > 0 ? (x.pv - x.pn) / x.pn : null)
   }
-  return { t, v, gLi, gPhx, gAst, gEdx, gRhl }
+  return { t, v, gLi, gPhx, gAst, gEdx, gRhl, gNad }
 }
 
 async function dive(sym, legUsd) {

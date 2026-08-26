@@ -132,6 +132,16 @@ body{margin:0;background:
 .gaps .now .v{font-family:"Cascadia Mono",Consolas,monospace;font-weight:800;font-size:20px;letter-spacing:-.6px;margin-top:3px}
 .gaps .age{font-size:10px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;margin-top:2px}
 .gaps .age.stale{color:var(--red);font-weight:700}
+.gaps .px .sd{margin-top:5px}
+/* A magyarázó sor a csík ALATT fut végig, teljes szélességben — ez mondja meg,
+   hogy a százalék jó-e NEKED. Csak szöveg, nem nyújtja meg a műszer-sort. */
+.gread{flex-basis:100%;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:11px;padding-top:10px;border-top:1px solid var(--sep);font-size:11.5px;color:var(--dim);line-height:1.5}
+.gread b{color:var(--tx);font-weight:700}
+.gchip{border-radius:var(--r-xs);padding:2px 8px;font-size:10px;font-weight:800;letter-spacing:.4px;white-space:nowrap;font-family:"Cascadia Mono",Consolas,monospace}
+.gchip.ok{color:var(--green);background:var(--gbg)}
+.gchip.bad{color:var(--red);background:var(--rbg)}
+.gchip.warn{color:var(--yellow);background:var(--ybg)}
+.gchip.mut{color:var(--faint);background:#ffffff0a}
 .hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:24px;margin-top:24px;padding-top:18px;border-top:1px solid var(--sep)}
 .hstats .l{font-size:10px;text-transform:uppercase;letter-spacing:1.1px;color:var(--faint);font-weight:700}
 .hstats .v{font-size:19px;font-weight:700;margin-top:8px;letter-spacing:-.3px}
@@ -1828,7 +1838,7 @@ async function renderMeasBar(d){
   MEASS=s;MEASSYM=sym
  }
  if(!s||!s.t||!s.t.length){el.innerHTML='';return}
- const kulcs=vb==='Aster'?'gAst':vb==='edgeX'?'gEdx':vb==='Phoenix'?'gPhx':vb==='Lighter-RH'?'gRhl':'gLi'
+ const kulcs=vb==='Aster'?'gAst':vb==='edgeX'?'gEdx':vb==='Phoenix'?'gPhx':vb==='Lighter-RH'?'gRhl':vb==='Nado'?'gNad':'gLi'
  const gsAll=s[kulcs]||[]
  const nyitva=!!(d.same&&d.same.open)
  const entryTs=(d.same&&d.same.entry_ts)||null
@@ -1965,6 +1975,33 @@ function gapSpark(w,h){
  return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" preserveAspectRatio="none" style="color:var(--dim)">'
   +be+'<path d="'+d+'" fill="none" stroke="var(--blue)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>'
 }
+// ── a Rés-figyelő statisztikai magja, átemelve a szülő projektből ────────────
+// Csak a MAG jön át, a 100 pontos pontozás és az A/B/C/X osztályzat nem — az egy
+// egész fül, itt egy magyarázó sor kell. Négy dolog, ami viszont nélkülözhetetlen:
+//
+// 1. A rés a SAJÁT MEDIÁNJÁHOZ tér vissza, nem nulláig (ZEC-tanulság). Ezért a
+//    "megfogható" rés a |mostani − medián| × láb, nem a nyers érték. Medián nélkül
+//    minden pár jobbnak látszik, mint amilyen — ezt mutatja most a csík is.
+// 2. Legalább 12 mérés kell, alatta nem mondunk statisztikát.
+// 3. Medián + MAD, nem átlag + szórás: a rés-sorok tele vannak tüskékkel, és egy
+//    kiugrás úgy felfújná a szórást, hogy utána semmi nem tűnne szélsőségesnek.
+// 4. Sodródás-ellenőrzés: ha az első és az utolsó harmad mediánja ≥1,5 z-vel eltér
+//    és a z-vel AZONOS előjelű, akkor a rés TRENDEL, nem leng — arra fogadni trend
+//    ellen fogadás. Ilyenkor nem ígérünk visszatérést.
+function gapStats(gs){
+ const v=(gs||[]).filter(x=>x!=null)
+ if(v.length<12)return {n:v.length,keves:true}
+ const med=(a)=>{const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length/2)]}
+ const m=med(v)
+ const mad=med(v.map(x=>Math.abs(x-m)))||1e-12
+ const most=v[v.length-1]
+ const z=(most-m)/(mad*1.4826)
+ const h=Math.floor(v.length/3)
+ const elso=med(v.slice(0,h)),utolso=med(v.slice(-h))
+ const sodr=(utolso-elso)/(mad*1.4826)
+ const trendel=Math.abs(sodr)>=1.5&&Math.sign(sodr)===Math.sign(z)
+ return {n:v.length,median:m,mad,z,sodr,trendel,keves:false}
+}
 function renderGapStrip(d){
  const el=document.getElementById('gapstrip');if(!el)return
  if(!d){el.style.display='none';return}
@@ -1974,13 +2011,69 @@ function renderGapStrip(d){
  const kor=gapLastOk?Math.round((Date.now()-gapLastOk)/1000):null
  // 15 másodperc fölött piros: befagyott számot ne nézzen élőnek senki.
  const all=kor==null||kor>15
+ // Melyik láb short, melyik long — a puszta ár mellé ez a leggyorsabb olvasat.
+ const sm=MEASD&&MEASD.same
+ const shortOn=d.short_on||(sm&&(sm.open?sm.opened_short_on:sm.short_on))||null
+ const oldal=(nev)=>shortOn?('<span class="'+(nev===shortOn?'pillS':'pillL')+'">'+(nev===shortOn?'SHORT':'LONG')+'</span>'):''
  el.innerHTML='<div class="px">'
-  +'<div><div class="n">'+d.va.name+'</div><div class="v">'+ar(d.va.price)+'</div></div>'
-  +'<div><div class="n">'+d.vb.name+'</div><div class="v">'+ar(d.vb.price)+'</div></div></div>'
+  +'<div><div class="n">'+d.va.name+'</div><div class="v">'+ar(d.va.price)+'</div><div class="sd">'+oldal(d.va.name)+'</div></div>'
+  +'<div><div class="n">'+d.vb.name+'</div><div class="v">'+ar(d.vb.price)+'</div><div class="sd">'+oldal(d.vb.name)+'</div></div></div>'
   +'<div class="spark">'+gapSpark(240,34)+'</div>'
   +'<div class="now"><div class="n">Live gap</div>'
   +'<div class="v '+(d.gap==null?'d':d.gap>0?'g':'r')+'">'+(d.gap==null?'—':(d.gap>0?'+':'−')+(Math.abs(d.gap)*100).toFixed(3)+'%')+'</div>'
   +'<div class="age'+(all?' stale':'')+'">'+(dollar!=null?'$'+dollar.toFixed(2)+' · ':'')+(kor==null?'no data':kor+'s ago')+'</div></div>'
+  +gapOlvasat(d,sm)
+}
+// ── mit jelent ez nekem? ─────────────────────────────────────────────────────
+// Egy előjeles százalék önmagában félreérthető: a −0,249% attól még lehet jó vagy
+// rossz, hogy negatív. A sor ezért NEM azt mondja meg, merre húz a rés, hanem hogy
+// EGYETÉRT-E A FUNDINGGAL — mert a kettő szétválhat, és épp ez a drága eset: a
+// COW-on a funding +$27/órát hozott, miközben egy teljes rés-összezárás −$147 lett
+// volna. Aki csak a rés-irányt olvassa, pont ebbe sétál bele.
+//
+// A szülő Rés-figyelő vakfoltja is ez volt fordítva: a pontszám a rés-statisztikából
+// dolgozott és nem nézte a funding-ítéletet — a ZRO 95 ponttal állt a lista élén, és
+// a kör −$4,61 lett. A két oldalt EGYÜTT kell kimondani.
+function gapOlvasat(d,sm){
+ if(d.gap==null)return ''
+ const chip=(cls,txt)=>'<span class="gchip '+cls+'">'+txt+'</span>'
+ // NYITOTT kör: a "merre nyiss" kérdés már lefutott, a bázis a releváns.
+ if(d.open&&d.entry_gap!=null){
+  const b=d.leg*(d.gap-d.entry_gap)*((sm&&sm.opened_short_on!==sm.va_name)?1:-1)
+  return '<div class="gread">'+chip(b>=0?'ok':'bad',(b>=0?'+$':'−$')+Math.abs(b).toFixed(2)+' since entry')
+   +'<span>the gap has moved '+(b>=0?'<b>your way</b>':'<b>against you</b>')
+   +' since you opened at '+((d.entry_gap>0?'+':'−')+(Math.abs(d.entry_gap)*100).toFixed(3))+'%.</span></div>'
+ }
+ // ARMED: egyirány + a rés statisztikája.
+ let h='<div class="gread">'
+ const egyir=shortOnAligned(d,sm)
+ if(egyir===true)h+=chip('ok','✓ aligned')+'<span>the funding has you short the <b>more expensive</b> leg — a narrowing gap pays on top of the carry.</span>'
+ else if(egyir===false)h+=chip('bad','✗ opposed')+'<span>the funding has you short the <b>cheaper</b> leg — if the gap closes you lose that while the funding pays. A race, not a carry.</span>'
+ else h+=chip('mut','—')+'<span>no direction yet.</span>'
+ // A megfogható rés: a saját mediánjához tér vissza, nem nulláig.
+ const st=(MEASS&&MEASSYM===d.asset&&MEASD)?gapStats(seriesForCross(MEASD)):null
+ if(st&&!st.keves){
+  const fog=Math.abs(d.gap-st.median)*d.leg
+  const medTxt=((st.median>0?'+':'−')+(Math.abs(st.median)*100).toFixed(3))+'%'
+  if(st.trendel)h+=chip('warn','drifting')+'<span>the gap is <b>trending, not oscillating</b> ('+st.sodr.toFixed(1)+'σ of drift) — betting on a return is betting against the trend.</span>'
+  else if(Math.abs(st.z)<1.5)h+=chip('mut','z '+st.z.toFixed(1))+'<span>sitting mid-band around its median '+medTxt+' — <b>no edge in the gap itself</b> right now.</span>'
+  else h+=chip('ok','z '+st.z.toFixed(1))+'<span>stretched from its median '+medTxt+' — <b>$'+fog.toFixed(2)+'</b> of catchable move if it returns.</span>'
+ }else if(st)h+=chip('mut',st.n+'/12')+'<span>needs 12 hourly measurements before the gap can be read statistically.</span>'
+ return h+'</div>'
+}
+// A rés előjele a Varihoz képest értendő, ezért a statisztika csak akkor érvényes,
+// ha a Vari az egyik láb — különben a sorozat és az élő érték ellentétes irányú.
+function seriesForCross(d){
+ if(!MEASS||!d.same||d.same.va_name!=='Variational')return null
+ const vb=d.same.vb_name
+ const k=vb==='Aster'?'gAst':vb==='edgeX'?'gEdx':vb==='Phoenix'?'gPhx':vb==='Lighter-RH'?'gRhl':vb==='Nado'?'gNad':vb==='Lighter'?'gLi':null
+ return k?MEASS[k]:null
+}
+function shortOnAligned(d,sm){
+ const shortOn=d.short_on||(sm&&sm.short_on)||null
+ if(!shortOn||d.gap==null||d.gap===0)return null
+ // gap > 0 ⇒ a va (a beállítás első venue-ja) a drágább. Egyirányú, ha azt shortolod.
+ return (d.gap>0)===(shortOn===d.va.name)
 }
 async function pollGap(){
  // Csak akkor kérdezünk, ha a csík látszik. Háttérfülből percenként húsz kérést
