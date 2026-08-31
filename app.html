@@ -877,12 +877,6 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
 <div class="card">
   <div id="scantab-naplo">
     <h2>📓 Journal · round PnL <span class="cnt" id="naplo_cnt"></span></h2>
-    <div class="signgate" id="naplo_gate" style="display:none">
-      <div class="ico">🔒</div>
-      <div class="ttl">Sign in to see your journal</div>
-      <div class="sub">Each Telegram account gets its own journal — nobody else can read or write to it, and it's not tied to this browser or device.</div>
-      <div id="naplo_gate_btn" class="gatebtn"></div>
-    </div>
     <div id="naplo_content">
     <div class="pnltotal" id="pnl_total"><div class="meta"><div class="lbl">Total round PnL</div><div class="num d">—</div></div></div>
     <div id="hiba_toggle" style="margin-top:8px"></div>
@@ -968,7 +962,8 @@ function renderAuth(){
 // app nyitva marad — a `git clone && npm start` így nulla konfigurációval megy.
 const GATED={pairs:['Sign in to use the scanner','Every cross, every asset both venues list — with the price gap, the leverage cap and the verdict on each.'],
              strat:['Sign in to see the ranked pairs','The scanner’s whole universe scored and ordered, so you do not have to read seven tables.'],
-             track:['Sign in to track a position','Entry price, price gap and funding accumulate against your account, so the round follows you between devices.']}
+             track:['Sign in to track a position','Entry price, price gap and funding accumulate against your account, so the round follows you between devices.'],
+             hist:['Sign in to see your journal','Each Telegram account gets its own journal — nobody else can read or write to it, and it is not tied to this browser or device.']}
 function applyGate(p){
  const locked=!!(ME.enabled&&!ME.user)
  for(const k of Object.keys(GATED)){
@@ -986,17 +981,29 @@ function applyGate(p){
   if(!locked&&g)g.remove()
  }
 }
+// Bejelentkezés nélkül a napló nem eltűnik, hanem PÉLDA-sorokat mutat a homály
+// alatt — a lap-szintű kapu (applyGate) teszi rá a fedőlapot. Üres kártya fölött
+// lebegő gomb nem árulja el, mit kapsz a belépésért; a tábla alakja igen.
+// A sorok szándékosan általánosak: nem valakinek a köreit utánozzák, csak a
+// szerkezetet mutatják, és a homály alatt amúgy sem olvashatók.
+const NAPLO_SABLON=[
+ ['2026-08-24 18:20', 12.73,'aligned cross · funding +18.4 / basis −4.9 / fees −0.8'],
+ ['2026-08-24 09:05', -4.61,'gap opened against the carry · closed early'],
+ ['2026-08-23 21:40',  8.68,'six ticks caught · basis flat'],
+ ['2026-08-23 11:12', -1.30,'spread narrowed below 10% · exited'],
+ ['2026-08-22 16:55', 26.03,'narrowing gap paid on top of the funding'],
+]
 function renderNaploGate(){
- const gate=document.getElementById('naplo_gate'),content=document.getElementById('naplo_content')
- if(!gate||!content)return
- const locked=ME.enabled&&!ME.user
- gate.style.display=locked?'flex':'none'
- content.style.display=locked?'none':''
- if(locked){
-  const btnw=document.getElementById('naplo_gate_btn')
-  btnw.innerHTML=''
-  btnw.appendChild(telegramButton('large'))
- }
+ const content=document.getElementById('naplo_content')
+ if(!content)return
+ const locked=!!(ME.enabled&&!ME.user)
+ content.style.display=''
+ if(!locked)return
+ const tb=document.getElementById('naplo_table')
+ if(tb)tb.innerHTML=NAPLO_SABLON.map(([d,p,n])=>
+  '<tr><td class="mono d">'+d+'</td>'+pnlCell(p)+'<td style="text-align:left">'+n+'</td><td></td></tr>').join('')
+ const e=document.getElementById('naplo_empty');if(e)e.style.display='none'
+ const c=document.getElementById('naplo_cnt');if(c)c.textContent=''
 }
 // Tizedespont, nem vessző: az egész felület angol, a magyar formátum ott idegen.
 function pct(x,d=2){return (x*100).toFixed(d)+"%"}
