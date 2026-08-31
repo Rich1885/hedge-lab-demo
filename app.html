@@ -372,6 +372,15 @@ details.card>.body{padding-top:14px}
 .signgate .ttl{font-size:13px;font-weight:700;color:var(--tx)}
 .signgate .sub{font-size:12px;color:var(--faint);max-width:40ch;line-height:1.65}
 .signgate .gatebtn{margin-top:6px;min-height:32px}
+/* ── lap-szintű kapu ────────────────────────────────────────────────────────
+   A tartalom elhomályosítva marad LÁTHATÓ — a látogató lássa, mit kap, ha
+   belép; egy üres lap nem árulna el semmit. Kattinthatatlan, hogy a
+   fókusszal se lehessen bejárni. */
+.pglock{position:relative}
+.pglock>*:not(.gatebox){filter:blur(7px);opacity:.5;pointer-events:none;user-select:none}
+.gatebox{position:absolute;inset:0;z-index:6}
+.gatebox .signgate{display:flex;position:sticky;top:110px;max-width:430px;margin:0 auto;
+  background:var(--card);border:1px solid var(--line2);border-radius:var(--r);box-shadow:0 18px 50px rgba(0,0,0,.5)}
 .delx{background:transparent;border:1px solid var(--line2);color:var(--faint);border-radius:var(--r-xs);padding:3px 9px;cursor:pointer;font-size:13px;font-weight:700;margin:0;transition:all .15s}
 .delx:hover{background:var(--rbg);border-color:#f8717155;color:var(--red)}
 /* ── mélyfúrás ── */
@@ -940,11 +949,43 @@ function renderAuth(){
   box.appendChild(telegramButton('small'))
  }
  renderNaploGate()
+ applyGate(curPage)
 }
 // A napló csak bejelentkezve lát bármit — anonim megosztott napló idegenek
 // bejegyzéseit keverné össze, éles auth mellett ezt nem engedjük meg (lásd
 // naploList/Add/Delete a szerveren). Bejelentkezés nélkül egy kapu áll a
 // form+tábla helyén, saját Telegram-gombbal.
+// ── BEJELENTKEZÉSI KAPU ─────────────────────────────────────────────────────
+// A Dashboard NYITVA marad: az a demó kirakata, azon látszik a hét venue, a
+// hőtérkép és a keresztek rangsora — bejelentkezés nélkül is. Minden más, ami
+// állapotot tart vagy hosszabb munkát igényel, elhomályosítva a kapu mögött.
+//
+// A History nincs a listán: ott már van saját, testreszabottabb kapu
+// (renderNaploGate) — az a naplót REJTI, nem elhomályosítja, és a szövege is
+// arról szól, hogy minden Telegram-fiók külön naplót kap.
+//
+// Ha auth nincs beállítva (nincs TG_BOT_TOKEN), ME.enabled hamis, és az egész
+// app nyitva marad — a `git clone && npm start` így nulla konfigurációval megy.
+const GATED={pairs:['Sign in to use the scanner','Every cross, every asset both venues list — with the price gap, the leverage cap and the verdict on each.'],
+             strat:['Sign in to see the ranked pairs','The scanner’s whole universe scored and ordered, so you do not have to read seven tables.'],
+             track:['Sign in to track a position','Entry price, price gap and funding accumulate against your account, so the round follows you between devices.']}
+function applyGate(p){
+ const locked=!!(ME.enabled&&!ME.user)
+ for(const k of Object.keys(GATED)){
+  const s=document.getElementById('pg-'+k);if(!s)continue
+  const kell=locked&&(p===undefined||p===k)
+  s.classList.toggle('pglock',locked)
+  let g=s.querySelector('.gatebox')
+  if(locked&&kell&&!g){
+   g=document.createElement('div');g.className='gatebox'
+   g.innerHTML='<div class="signgate"><div class="ico">🔒</div><div class="ttl">'+GATED[k][0]+'</div>'
+    +'<div class="sub">'+GATED[k][1]+'</div><div class="gatebtn"></div></div>'
+   s.appendChild(g)
+   g.querySelector('.gatebtn').appendChild(telegramButton('large'))
+  }
+  if(!locked&&g)g.remove()
+ }
+}
 function renderNaploGate(){
  const gate=document.getElementById('naplo_gate'),content=document.getElementById('naplo_content')
  if(!gate||!content)return
@@ -1719,6 +1760,7 @@ function showPage(p){
   if(p==='pairs')renderPairs()
   if(p==='dash')renderDash()
   if(p==='track')pollGap()   // ne kelljen három másodpercet várni az első értékre
+  applyGate(p)
 }
 // A belső venue-név a VKEY/lastVenues kulcsa (RhLighter), a kiirt név viszont az,
 // amit a beállítások legördülőjében is látsz (Lighter-RH) — különben kétféleképpen
