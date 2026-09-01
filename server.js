@@ -32,7 +32,18 @@ const SUPA_URL = process.env.SUPA_URL || ''
 const SUPA_KEY = process.env.SUPA_KEY || ''
 const SUPA_ON = !!(SUPA_URL && SUPA_KEY)
 
-let _cfg = null            // config — MINDIG memóriában (nézőnként külön, nem közös)
+// KI kérdez éppen? A configot felhasználónként tároljuk, de a loadCfg()-t kilenc
+// helyről hívjuk, közte a payload-építés mélyéről, ahol nincs kéznél a `req`.
+// Végigfűzni mindenhol invazív lenne; egy modul-szintű "aktuális user" viszont
+// versenyhelyzetes, mert a kérések aszinkron egymásba lapolódnak.
+// Az AsyncLocalStorage pont erre való: kérésenként külön tár, a hívási láncon
+// automatikusan végigmegy, és a loadCfg() szinkron marad.
+const { AsyncLocalStorage } = require('async_hooks')
+const REQ = new AsyncLocalStorage()
+const currentUid = () => { const s = REQ.getStore(); return (s && s.uid) || null }
+
+let _cfg = null            // config auth NÉLKÜL (lokális futás) — egyetlen közös
+const _cfgCache = new Map()   // telegram_id → config, memória-tükör a Supabase fölött
 let _naplo = []            // napló — csak a memória-módban használt
 
 // Supabase REST. Külön kliens-könyvtár nélkül: három végpont kell összesen.
@@ -111,8 +122,36 @@ const VMAP = { Variational: 'Vari', Ethereal: 'Ethereal', Nado: 'Nado', Lighter:
 // hogy beállítani nem lehetett rájuk keresztet: aki RARE-t vagy COW-ot próbált, anál
 // az úrlap némán visszaesett Vari+Ethereal-ra. Új venue esetén EZT is bővítsd.
 const VENUE_OPTS = ['Variational', 'Ethereal', 'Nado', 'Lighter', 'Lighter-RH', 'Aster', 'edgeX', 'Phoenix']
-function loadCfg() { return { ...CFG_DEFAULT, ...(_cfg || {}) } }
-function saveCfg(c) { _cfg = c }
+// A config olvasása SZINKRON marad — a memória-tükörből olvas, amit a kérés elején
+// egyszer töltünk fel (ensureCfgLoaded). Így az összes hívási hely érintetlen.
+function loadCfg() {
+  const uid = currentUid()
+  return { ...CFG_DEFAULT, ...((uid ? _cfgCache.get(uid) : _cfg) || {}) }
+}
+// Az írás is szinkron a hívó felé: a tükör azonnal frissül, a Supabase-be menő
+// írás a háttérben fut. Ha az elszáll, a memória akkor is helyes, és a következő
+// mentés újrapróbálja — egy elveszett háttérírás miatt ne dőljön el a kérés.
+function saveCfg(c) {
+  const uid = currentUid()
+  if (!uid) { _cfg = c; return }
+  _cfgCache.set(uid, c)
+  if (!SUPA_ON) return
+  supa('user_config?on_conflict=telegram_id', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ telegram_id: uid, data: c, updated_at: new Date().toISOString() }),
+  }).catch((e) => console.error('config mentés:', e.message))
+}
+// A kérés elején egyszer: ha ennek a felhasználónak még nincs tükre, betöltjük.
+// Az üres objektum is tükör — különben minden kérés újra lekérdezné azt, akinek
+// még nincs mentett configja.
+async function ensureCfgLoaded(uid) {
+  if (!uid || !SUPA_ON || _cfgCache.has(uid)) return
+  try {
+    const rows = await supa(`user_config?telegram_id=eq.${uid}&select=data`)
+    _cfgCache.set(uid, (rows && rows[0] && rows[0].data) || {})
+  } catch (e) { console.error('config betöltés:', e.message); _cfgCache.set(uid, {}) }
+}
 // A napló mindig EGY felhasználóé. Ha az auth élesben van (AUTH_ON), bejelentkezés
 // KÖTELEZŐ hozzá — nincs megosztott anonim napló, mert az egyszerre két hibát vinne
 // be: idegenek látnák egymás bejegyzéseit, és Vercelen a memóriás tárolás egyébként
@@ -157,7 +196,35 @@ try {
   labHist = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed', 'labhist-seed.json'), 'utf8')).rows || []
   console.log(`⚙ seed: ${labHist.length} pillanatkép`)
 } catch (e) { console.error('seed hiányzik:', e.message) }
+
+// A mérési történet MINDENKIÉ ugyanaz — piaci adat, nem felhasználói. Ezért közös
+// tábla, felhasználó nélkül.
+//
+// Pillanatképenként EGY SOR, nem egyetlen nagy JSON: egy pillanatkép ~46 kB, és
+// egy közös tömböt óránként újraírni percek alatt megabájtokat jelentene. Így
+// minden órában egy kis beszúrás megy, olvasni meg úgyis csak induláskor kell.
+//
+// _histLoaded: amíg a betöltés fut, NEM rögzítünk. A szülőben ez egyszer valódi
+// kárt okozott — egy hibás induló betöltés a még üres tömböt mentette ki, és
+// letörölte a felgyűlt heteket. Itt soronkénti beszúrás van, tehát felülírni nem
+// tudna, de a duplikált óra és a hiányos dedup így is elkerülhető.
+let _histLoaded = !SUPA_ON   // Supabase nélkül a seed az igazság, nincs mire várni
+async function loadHist() {
+  if (!SUPA_ON) return
+  try {
+    const ota = Date.now() - 30 * 86400e3
+    const rows = await supa(`lab_snapshot?ts=gte.${ota}&order=ts.asc&select=hour,ts,d`)
+    const van = new Set(labHist.map((r) => r.hour))
+    let uj = 0
+    for (const r of rows || []) if (!van.has(r.hour)) { labHist.push({ hour: r.hour, ts: +r.ts, d: r.d }); uj++ }
+    labHist.sort((a, b) => a.ts - b.ts)
+    console.log(`⚙ Supabase: ${uj} mentett pillanatkép a seeden felül (összesen ${labHist.length})`)
+  } catch (e) { console.error('history betöltés:', e.message) }
+  finally { _histLoaded = true }
+}
+loadHist()
 function recordSnapshot(vari, eth, nado, lighter, phoenix, aster, edgex, rhlighter) {
+  if (!_histLoaded) return   // amíg nem tudjuk, mi van már mentve, nem írunk
   const hour = new Date().toISOString().slice(0, 13)
   if (labHist.length && labHist[labHist.length - 1].hour === hour) return
   const d = {}
@@ -183,6 +250,13 @@ function recordSnapshot(vari, eth, nado, lighter, phoenix, aster, edgex, rhlight
   for (const [s, x] of Object.entries(rhlighter || {})) { put(s, 'r', x.apr); putP(s, 'pr', x.price) }
   const sor = { hour, ts: Date.now(), d }
   labHist.push(sor)
+  // Háttérírás: a mérés ne várjon az adatbázisra. Az `on_conflict=hour` miatt egy
+  // véletlen ismétlés (két példány ugyanabban az órában) nem hibázik, felülírja.
+  if (SUPA_ON) supa('lab_snapshot?on_conflict=hour', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(sor),
+  }).catch((e) => console.error('history mentés:', e.message))
   // A demo 30 napig tart meg — hosszabb sor, olvashatóbb chart, korlátos memória.
   labHist = labHist.filter((r) => r.ts >= Date.now() - 30 * 86400e3)
 }
@@ -326,7 +400,11 @@ async function fetchEthereal() {
 // végleg elveszne. Ha bármi hibázik, a panel egyszerűen nem jelenik meg.
 // A Variational NEM ad nyilvános számla-végpontot — az a láb nem ellenőrizhető.
 let nadoSymByProduct = {}
-let lastLivePos = null
+// Tárcánként külön. Amióta a config felhasználónkénti, egy közös globális azt
+// jelentené, hogy aki éppen elindította a szkent, annak a tárcájából olvasott
+// pozíciók MINDENKI panelén megjelennének. A kulcs a tárcacím, tehát mindenki
+// csak a sajátját látja — és két azonos tárcájú néző osztozhat rajta, ami rendben.
+const _livePos = new Map()
 const NADO_SUB_SUFFIX = '64656661756c740000000000'   // "default" alszámla-név, 12 bájtra töltve
 
 async function nadoPositions(wallet) {
@@ -822,7 +900,7 @@ async function scan() {
 
   recordSnapshot(vari, eth, nado, li.lighter, phx, ast, edx, rhl)
   // élő pozíciók frissítése — sosem dobhat, a hiba csak annyit jelent, hogy nincs tükör
-  try { const lp = await fetchLivePositions(loadCfg().wallet); if (lp) lastLivePos = lp } catch {}
+  try { const w = loadCfg().wallet; const lp = await fetchLivePositions(w); if (lp) _livePos.set(w, lp) } catch {}
   return { time: new Date().toLocaleString('hu-HU'), histHours: labHist.length, priceHist: priceHistStat(), rows, nadovari, comp, phxvari, astervari, edgexvari, rhlvari }
 }
 
@@ -1023,6 +1101,7 @@ function rebTxt(r) { if (!r || r.amount < 20) return ''; return ` → Utalj ~$${
 // Csak JELEZ — a javítás a felhasználó egy kattintása, mert egy téves API-válaszra
 // automatikusan felülírni az állapotot többet ártana, mint használna.
 function reconcile(cfg) {
+  const lastLivePos = _livePos.get(cfg.wallet)
   if (!lastLivePos) return null
   const seen = lastLivePos.venues
   const all = []
@@ -1310,7 +1389,16 @@ async function gapVenue(disp, sym) {
 // szolgálja ki a helyi `node server.js`-t (lásd a fájl végén) ÉS Vercelen a
 // serverless függvényt (api/index.js re-exportálja). A Vercel-verzió a
 // legtöbb módosítást nem is látja: a handler minden útvonalat ugyanúgy old fel.
+// A kérés-kezelő minden hívást a bejelentkezett felhasználó kontextusában futtat,
+// hogy a loadCfg()/saveCfg() a MÉLYBŐL is tudja, kiről van szó — anélkül, hogy a
+// felhasználót kilenc hívási helyen végig kellene fűzni.
 async function handler(req, res) {
+  const u = currentUser(req)
+  const uid = (u && u.id) || null
+  await ensureCfgLoaded(uid)
+  return REQ.run({ uid }, () => handleReq(req, res))
+}
+async function handleReq(req, res) {
   const json = (o, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' }); res.end(JSON.stringify(o)) }
   try {
     const url = req.url.split('?')[0]   // query-string (pl. cache-buster ?_=…) levágása az útvonal-egyeztetéshez
