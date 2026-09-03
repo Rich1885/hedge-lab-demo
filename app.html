@@ -779,6 +779,7 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
       <button class="filt"    id="pf-alt"   onclick="setPairCat('alt')">Alt</button>
       <button class="filt"    id="pf-major" onclick="setPairCat('major')">Major</button>
       <button class="filt" id="eg-p" onclick="toggleEgyirP()" title="Only pairs where funding has you short the MORE EXPENSIVE leg — a narrowing gap then pays you too.">✓ Aligned</button>
+      <button class="filt" id="zaj-p" onclick="toggleZajP()" title="Only pairs where one day of funding covers a typical swing of the price gap. Across the whole table this usually leaves a handful — which is the point.">≤ 1 day noise</button>
       <span class="sp"></span>
       <span class="t-meta">Leg ($):</span>
       <input id="pleg" type="number" value="3000" step="100" min="50" style="width:82px;padding:6px 9px" oninput="saveLeg(this);renderPairs()">
@@ -786,7 +787,7 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
     </div>
     <div class="tscroll"><table><thead><tr>
       <th>Asset</th><th>Type</th><!--VTH:Vari:Vari--><th class="vh" id="pvth">—</th>
-      <th>Spread</th><th>Gap</th><th>Direction</th><th>$ / day</th><th>Leverage</th><th>7d spr</th><th>Verdict</th>
+      <th>Spread</th><th>Gap</th><th>Noise / carry</th><th>Direction</th><th>$ / day</th><th>Leverage</th><th>7d spr</th><th>Verdict</th>
     </tr></thead><tbody id="prows"></tbody></table></div>
     <div class="hint">One cross at a time, every asset both venues list. <b>Spread</b> is the funding difference, with the Variational tick below it — that tick is a snapshot, so being in position at the boundary earns the whole interval. <b>Gap</b> is the <i>price</i> difference: its sign tells you whether the gap pulls with the funding (positive = you short the more expensive leg) and the dollar figure below is what a full close would move. <b>Verdict</b> reads the pair's own 7-day history, not the current tick. Click any row for the deep dive.</div>
   </div>
@@ -1534,6 +1535,37 @@ const scP=(x,d=1)=>x==null?'—':(x*100).toFixed(d)+'%'
 // maga mondja, hogy vékony a könyv — és a vékony könyvön a rés lép akkorát, ami a
 // napi spread-keresetet elviszi. A címkében ott a lábhoz szükséges fedezet is, mert
 // végül az dönti el, belefér-e a tőkédbe.
+// ── ZAJ / CARRY ─────────────────────────────────────────────────────────────
+// Hány NAPIG kell tartanod, hogy a funding behozzon egy szokásos rés-kilengést.
+//
+//   nap = MAD × 365 / |spread|
+//
+// A lábméret kiesik, tehát ez a pár tulajdonsága, nem a beállításodé. A `BE`
+// oszlop a KÖLTSÉGET méri a carryhoz; ez a ZAJT — és a napló szerint a köröket
+// az utóbbi viszi el. A −$9,61-es XMR-körnél ez 94 nap volt: három hónap carry
+// egyetlen átlagos rés-mozgásra.
+const zajNap=(r)=>{
+ const d=Math.abs(r.pair?r.pair.diff:r.diff)
+ // Carry nélkül a hányados értelmetlen: nulla funding semennyi idő alatt nem hoz
+ // be semmit. 1%/év alatt nincs mit a zajhoz mérni.
+ if(!(d>=0.01))return null
+ // A MAD = 0 nem "tökéletesen stabil rés", hanem mérhetetlen: hat tizedesre
+ // kerekített áraknál egy szűk páron a rés végig azonos lehet. Nulla napot írni rá
+ // pont az a hízelgő szám lenne, ami ellen ez az oszlop szól. (Élesben a NOT és a
+ // HMSTR jött így elő — mindkettőnél a spread is 0,0% volt.)
+ if(!(r.gapMad>0))return null
+ return r.gapMad*365/d
+}
+function zajCell(r){
+ const n=zajNap(r)
+ if(n==null)return '<td class="mono d" title="Needs 12 hourly price measurements on this cross before the gap noise can be measured.">—</td>'
+ // 1 nap: egy nap carry behoz egy tipikus kilengést — ott a funding vezet.
+ // 3 nap fölött a rés dönt, nem te. A küszöb a naplóból jön, nem elméletből.
+ const c=n<=1?'g':n<=3?'y':'r'
+ const sz=n<1?n.toFixed(2):n<10?n.toFixed(1):Math.round(n)
+ return '<td class="mono '+c+'" title="'+sz+' days of funding to cover one typical swing of the price gap (one MAD). Under a day the carry leads; past three the gap decides the round, not you. The losing XMR round was 94.">'
+  +sz+'<span class="d" style="font-size:10px"> d</span></td>'
+}
 function levCell(r,leg){
  if(r.maxLev==null)return '<td class="mono d" title="Variational does not publish it (RFQ quoting) — but it allows 20-50x on everything, so it is never the narrower leg">—</td>'
  const c=r.maxLev<=5?'r':r.maxLev<=10?'y':'g'
@@ -1963,7 +1995,7 @@ const PAIRVENUES=[
  {k:'nadovari', nev:'Nado',      logo:'Nado',     f:'nApr',v:'nVol'},
  {k:'phxvari',  nev:'Phoenix',   logo:'Phoenix',  f:'pApr',v:'pOi'},
 ]
-let pairVenue='astervari',pairCat='all',pairQ='',csakEgyirP=false
+let pairVenue='astervari',pairCat='all',pairQ='',csakEgyirP=false,csakHalkP=false
 try{const s=localStorage.getItem('dn_pairvenue');if(s&&PAIRVENUES.some(x=>x.k===s))pairVenue=s}catch{}
 const pairDef=()=>PAIRVENUES.find(x=>x.k===pairVenue)||PAIRVENUES[0]
 function crossRows(def){
@@ -1975,6 +2007,7 @@ function setPairVenue(k){pairVenue=k;try{localStorage.setItem('dn_pairvenue',k)}
 function setPairCat(c){pairCat=c;renderPairs()}
 function pairSearch(v){pairQ=(v||'').trim().toUpperCase();renderPairs()}
 function toggleEgyirP(){csakEgyirP=!csakEgyirP;renderPairs()}
+function toggleZajP(){csakHalkP=!csakHalkP;renderPairs()}
 function renderPairs(){
  const tb=document.getElementById('prows');if(!tb)return
  const def=pairDef()
@@ -1987,12 +2020,14 @@ function renderPairs(){
  document.getElementById('pvth').innerHTML='<span class="vhw">'+lg+'<span>'+def.nev+'</span></span>'
  for(const x of ['all','RWA','alt','major']){const b=document.getElementById('pf-'+x);if(b)b.classList.toggle('on',x===pairCat)}
  const egb=document.getElementById('eg-p');if(egb)egb.classList.toggle('on',csakEgyirP)
+ const zjb=document.getElementById('zaj-p');if(zjb)zjb.classList.toggle('on',csakHalkP)
  const kp=document.getElementById('pkpis')
- if(!scanData){tb.innerHTML='<tr><td colspan="11" class="d" style="padding:28px;text-align:center">loading the seven venues…</td></tr>';return}
+ if(!scanData){tb.innerHTML='<tr><td colspan="12" class="d" style="padding:28px;text-align:center">loading the seven venues…</td></tr>';return}
  const leg=+((document.getElementById('pleg')||{}).value)||3000
  let rows=pairRows()
  if(pairCat!=='all')rows=rows.filter(r=>r.cat===pairCat)
  if(csakEgyirP)rows=rows.filter(r=>r.aligned===true)
+ if(csakHalkP)rows=rows.filter(r=>{const n=zajNap(r);return n!=null&&n<=1})
  if(pairQ)rows=rows.filter(r=>r.sym.indexOf(pairQ)>=0)
  // A KPI-k a SZŰRT listáról szólnak — amit a fejléc mond, az a tábla alatta.
  // A "$/nap" szándékosan a LEGJOBB páré, nem az összes összege: 350 pár napi
@@ -2009,11 +2044,11 @@ function renderPairs(){
   // hazudna. Egy fix időbélyeg akkor is igaz marad, ha megáll a frissítés.
   ['Updated',String(scanData.time||'').split(' ').pop()||'—',(scanData.histHours||0)+'h of history'],
  ].map(([l,v,s])=>'<div class="kpi"><div class="t-label">'+l+'</div><div class="t-data" style="font-size:23px;margin-top:6px">'+v+'</div><div class="t-meta sub">'+s+'</div></div>').join('')
- if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="d" style="padding:28px;text-align:center">No pair matches the filters.</td></tr>';return}
+ if(!rows.length){tb.innerHTML='<tr><td colspan="12" class="d" style="padding:28px;text-align:center">No pair matches the filters.</td></tr>';return}
  // Rendezés a TELJES szűrt listán, és csak utána vágunk 80-ra — különben a
  // "legnagyobb $/nap" az első 80 spread szerinti soron belüli maximum lenne.
  // A kulcsok sorrendje a fejléc oszlopaival egyezik.
- const kulcs=(r)=>[r.sym,r.cat,r.vApr,r.oApr,Math.abs(r.diff),r.gap,r.pair.short,
+ const kulcs=(r)=>[r.sym,r.cat,r.vApr,r.oApr,Math.abs(r.diff),r.gap,zajNap(r),r.pair.short,
                    leg*Math.abs(r.diff)/365,r.maxLev,r.avg7d,r.ageH]
  rows=applySort('prows',rows.map(r=>({r,k:kulcs(r)}))).map(x=>x.r)
  sortHead('#pg-pairs table','prows',renderPairs)
@@ -2026,7 +2061,7 @@ function renderPairs(){
   +'<td class="mono '+scCls(r.oApr)+'">'+scP(r.oApr)+'</td>'
   +'<td class="mono big '+(Math.abs(r.diff)>=0.3?'g':Math.abs(r.diff)>=0.1?'y':'d')+'">'+scP(r.diff)
    +(t?'<br><span class="d" style="font-size:10px">$'+t.usd.toFixed(2)+' / '+t.ivH+'h tick</span>':'')+'</td>'
-  +gapCell(r,leg)
+  +gapCell(r,leg)+zajCell(r)
   +'<td style="text-align:left"><span class="pillS">S</span> '+vNev(r.pair.short)+' → <span class="pillL">L</span> '+vNev(r.pair.long)+'</td>'
   +'<td class="mono g">$'+usdDay.toFixed(2)+'</td>'
   +levCell(r,leg)

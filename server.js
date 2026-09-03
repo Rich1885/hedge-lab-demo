@@ -297,6 +297,55 @@ function gapAligned(gap, shortVenue) {
   return (gap > 0) === (shortVenue === 'Vari')
 }
 
+// ── ZAJ / CARRY ─────────────────────────────────────────────────────────────
+// A `beDays` a KÖLTSÉGET veti össze a carryval: hány nap funding fizeti ki a
+// nyitást és a zárást. Az viszont nem mondja meg, hogy a rés közben mennyit
+// mozdul — pedig a napló szerint a köröket az viszi el, nem a fee.
+//
+// Ez a hányados a ZAJT veti össze a carryval:
+//
+//     nap = (egy MAD-nyi rés dollárban) / (napi funding dollárban)
+//
+// A lábméret mindkét oldalon kiesik, tehát ez a pár tulajdonsága, nem a tiéd:
+//
+//     nap = MAD × 365 / |spread|
+//
+// Vagyis: hány napig kell tartanod, hogy a funding behozzon egy SZOKÁSOS
+// rés-kilengést. Ha ez 94 nap — mint a −$9,61-es XMR-körnél volt —, akkor három
+// hónap carry fedez egy átlagos mozgást, és a kör kimenetele érmefeldobás.
+//
+// MAD és nem szórás: a rés-sorok tele vannak tüskékkel, és egy kiugrás úgy
+// felfújná a szórást, hogy utána semmi nem tűnne szélsőségesnek.
+const PKEY = { Vari: 'pv', Lighter: 'pl', Nado: 'pn', Aster: 'pa', EdgeX: 'pg', RhLighter: 'pr', Phoenix: 'px' }
+const _gapStatMemo = new Map()
+function gapStat(sym, aV, bV) {
+  const kulcs = sym + '|' + aV + '|' + bV
+  if (_gapStatMemo.has(kulcs)) return _gapStatMemo.get(kulcs)
+  const ka = PKEY[aV], kb = PKEY[bV]
+  let out = null
+  if (ka && kb && ka !== kb) {
+    const v = []
+    for (const row of labHist) {
+      const x = row.d[sym]; if (!x) continue
+      const pa = x[ka], pb = x[kb]
+      if (!(pa > 0) || !(pb > 0)) continue
+      v.push((pa - pb) / pb)
+    }
+    // Tizenkét mérés alatt nem mondunk statisztikát — ugyanaz a küszöb, mint a
+    // szülő rés-figyelőjében. Kevesebből a medián is véletlen.
+    if (v.length >= 12) {
+      const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }
+      const m = med(v)
+      out = { n: v.length, median: m, mad: med(v.map((x) => Math.abs(x - m))) }
+    } else out = { n: v.length, median: null, mad: null }
+  }
+  _gapStatMemo.set(kulcs, out)
+  return out
+}
+// A memót szkenenként ürítjük: a labHist óránként bővül, és egy elavult MAD
+// csendben rossz döntést támogatna.
+function gapStatReset() { _gapStatMemo.clear() }
+
 function priceGap(a, b) {
   if (!a || !b || !(a > 0) || !(b > 0)) return null
   return (a - b) / b
@@ -710,6 +759,7 @@ function akkumulalFunding(same) {
 let lastVenues = null
 
 async function scan() {
+  gapStatReset()
   // A Phoenix nem dobhatja el az egész szkent, ha épp nem elérhető — a többi négy venue
   // évek óta megy, ez az új. Hiba esetén üres objektum, a Vari+Phoenix fül marad üres.
   const [vari, eth, nado, li, phx, ast, rhl] = await Promise.all([
@@ -764,6 +814,7 @@ async function scan() {
       hl: li.hyperliquid[s]?.apr ?? null,
       costRT, beDays: Math.abs(chosen.diff) > 0 ? (costRT * 365) / Math.abs(chosen.diff) : null,
       avg7d: h.avg7d, ageH: h.ageH, ageCapped: h.capped,
+      gapMad: (gapStat(s, chosen.short, chosen.long) || {}).mad ?? null,
       // A Vari fundingja PILLANATKÉP-alapú, és a tick-intervalluma eszközfüggő (kripto 4h,
       // RWA 8h). Ezért egy 4h-s eszközön egy pillanatra bent lévő pozíció is megkapja a
       // TELJES intervallum kifizetését — ez külön szám a spreadtől, és gyakran nagyobb tétel.
@@ -797,6 +848,7 @@ async function scan() {
       sym: s, cat, mult: pointMult(cat), pair, thin: (vv.vol < THIN_VOL_USD || nn.vol < THIN_VOL_USD),
       vApr: vv.apr, nApr: nn.apr, diff: pair.diff, vVol: vv.vol, nVol: nn.vol,
       maxLev: nn.maxLev ?? null,
+      gapMad: (gapStat(s, 'Vari', 'Nado') || {}).mad ?? null,
       // A rés a Vari+Nado kereszten sokáig hiányzott — egyedüliként a hat közül —,
       // pedig a Nado ad oracle-árat. Emiatt ezen a kereszten se a Gap oszlop, se az
       // Egyirány-szűrő nem működött, holott épp itt számít: a Nado alt-könyvei
@@ -827,6 +879,7 @@ async function scan() {
       sym: s, cat, mult: pointMult(cat), pair, thin: (vv.vol < THIN_VOL_USD || ll.vol < THIN_VOL_USD),
       vApr: vv.apr, lApr: ll.apr, diff: pair.diff, vVol: vv.vol, lVol: ll.vol,
       maxLev: ll.maxLev ?? null,
+      gapMad: (gapStat(s, 'Vari', 'Lighter') || {}).mad ?? null,
       gap: priceGap(vv.price, ll.price), aligned: gapAligned(priceGap(vv.price, ll.price), pair.short),
       costRT, beDays: Math.abs(pair.diff) > 0 ? (costRT * 365) / Math.abs(pair.diff) : null,
       avg7d: h.avg7d, ageH: h.ageH, ageCapped: h.capped,
@@ -851,6 +904,7 @@ async function scan() {
       sym: s, cat, mult: pointMult(cat), pair, thin: (vv.vol < THIN_VOL_USD || (pp.oi != null && pp.oi < THIN_VOL_USD)),
       vApr: vv.apr, pApr: pp.apr, diff: pair.diff, vVol: vv.vol, pOi: pp.oi,
       maxLev: pp.maxLev ?? null,
+      gapMad: (gapStat(s, 'Vari', 'Phoenix') || {}).mad ?? null,
       gap: priceGap(vv.price, pp.price), aligned: gapAligned(priceGap(vv.price, pp.price), pair.short),
       costRT, beDays: Math.abs(pair.diff) > 0 ? (costRT * 365) / Math.abs(pair.diff) : null,
       avg7d: h.avg7d, ageH: h.ageH, ageCapped: h.capped,
@@ -885,6 +939,7 @@ async function scan() {
         // Csak az edgeX adja meg — a Vari-oldal úgyis 20-50x, tehát a lábméretezést
         // gyakorlatilag ez a szám köti meg. Az Asternél nincs a publikus API-ban.
         maxLev: oo.maxLev ?? null,
+        gapMad: (gapStat(s, 'Vari', otherName) || {}).mad ?? null,
         gap: priceGap(vv.price, oo.price), aligned: gapAligned(priceGap(vv.price, oo.price), pair.short),
         costRT, beDays: Math.abs(pair.diff) > 0 ? (costRT * 365) / Math.abs(pair.diff) : null,
         avg7d: h.avg7d, ageH: h.ageH, ageCapped: h.capped,
