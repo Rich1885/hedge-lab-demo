@@ -2664,7 +2664,22 @@ function restoreLegs(){
 }
 restoreLegs()
 // a napló-típus is ott marad, ahol utoljára hagytad
-loadMe();load();loadNaplo();airdropPlat();loadScan();setInterval(load,90000);setInterval(loadScan,90000)
+loadMe();load();loadNaplo();airdropPlat();loadScan()
+// ── a drága ciklusok csak elöl lévő fülön ────────────────────────────────────
+// A /api/scan a legnagyobb válasz a lapon. Őrizetlenül 90 másodpercenként lekérni
+// egy háttérben felejtett fülből napi több száz megabájt — a szülő projektben
+// pontosan ez fűrészelte el a Render havi keretét tíz nap alatt. A böngésző a
+// háttéridőzítőket lassítja, de nem állítja le.
+//
+// Visszatéréskor azonnal frissítünk, különben állott adatot néznél — de csak ha
+// tényleg eltelt egy ciklus, hogy a fülek közti kapkodás ne indítson szkent.
+let lastFetchAt=Date.now()
+const haLathato=(fn)=>()=>{if(!document.hidden){lastFetchAt=Date.now();fn()}}
+setInterval(haLathato(load),90000);setInterval(haLathato(loadScan),90000)
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden||Date.now()-lastFetchAt<60000)return
+ lastFetchAt=Date.now();load();loadScan()
+})
 // Az élő rés a többinél harmincszor sűrűbben frissül — de csak amíg a Kör lapon
 // állsz és a fül elöl van (lásd pollGap).
 setInterval(pollGap,3000)

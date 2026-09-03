@@ -1389,6 +1389,31 @@ async function gapVenue(disp, sym) {
 // szolgálja ki a helyi `node server.js`-t (lásd a fájl végén) ÉS Vercelen a
 // serverless függvényt (api/index.js re-exportálja). A Vercel-verzió a
 // legtöbb módosítást nem is látja: a handler minden útvonalat ugyanúgy old fel.
+// ── TÖMÖRÍTÉS ──────────────────────────────────────────────────────────────
+// A /api/scan fél megabájt JSON. Vercelen ez nem látszik, mert az edge magától
+// tömörít — de a render.yaml is a repóban van, és perzisztens szerveren a
+// kimenő forgalmat nekünk kell fognunk: a szülő projektben ugyanez a válasz
+// 507 kB → 72 kB lett, és a keret enélkül tíz nap alatt elfogyott.
+//
+// Brotli MINŐSÉG 4-en: a magasabb fokozatok fél megabájton már tizedmásodperceket
+// esznek az eseményhurokból, a 4 viszont gzip-sebességű és nála jobb arányú.
+// A tömörítés aszinkron, hogy egy nagy válasz ne állítsa meg a többi kérést.
+// Kis válaszra (< 1 kB) nem éri meg — ott a fejléc többe kerül, mint a nyereség.
+const zlib = require('zlib')
+function kuld(req, res, body, type, code = 200) {
+  const h = { 'Content-Type': type, 'Cache-Control': 'no-store, no-cache, must-revalidate', Vary: 'Accept-Encoding' }
+  const ae = String(req.headers['accept-encoding'] || '')
+  const buf = Buffer.from(body)
+  const kesz = (enc, out) => { if (enc) h['Content-Encoding'] = enc; res.writeHead(code, h); res.end(out) }
+  if (buf.length < 1024) return kesz(null, buf)
+  if (/\bbr\b/.test(ae)) {
+    return zlib.brotliCompress(buf, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } },
+      (e, out) => kesz(e ? null : 'br', e ? buf : out))
+  }
+  if (/\bgzip\b/.test(ae)) return zlib.gzip(buf, (e, out) => kesz(e ? null : 'gzip', e ? buf : out))
+  kesz(null, buf)
+}
+
 // A kérés-kezelő minden hívást a bejelentkezett felhasználó kontextusában futtat,
 // hogy a loadCfg()/saveCfg() a MÉLYBŐL is tudja, kiről van szó — anélkül, hogy a
 // felhasználót kilenc hívási helyen végig kellene fűzni.
@@ -1399,10 +1424,11 @@ async function handler(req, res) {
   return REQ.run({ uid }, () => handleReq(req, res))
 }
 async function handleReq(req, res) {
-  const json = (o, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' }); res.end(JSON.stringify(o)) }
+  const json = (o, code = 200) => kuld(req, res, JSON.stringify(o), 'application/json; charset=utf-8', code)
   try {
     const url = req.url.split('?')[0]   // query-string (pl. cache-buster ?_=…) levágása az útvonal-egyeztetéshez
-    const html = (body) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache, must-revalidate' }); res.end(body) }
+    // Az oldal maga 166 kB (a base64 venue-logókkal együtt) — ez is menjen tömörítve.
+    const html = (body) => kuld(req, res, body, 'text/html; charset=utf-8')
     if (url === '/' || url === '/index.html') { html(LANDING) }
     else if (url === '/app' || url === '/app/') { html(PAGE) }
     // ── auth ──
