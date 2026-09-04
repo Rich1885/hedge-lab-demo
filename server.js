@@ -1489,7 +1489,10 @@ async function handleReq(req, res) {
     // ── auth ──
     else if (url === '/api/me') {
       const u = currentUser(req)
-      json({ enabled: AUTH_ON, bot: TG_BOT_NAME, user: u, persistent: SUPA_ON })
+      // A bot numerikus azonosítója (a token kettőspont előtti fele) nem titok:
+      // a Telegram a belépő-URL query-jében amúgy is közzéteszi. A kapu gombja
+      // ebből építi a linkjét, így nem kell második widget-példány a lapra.
+      json({ enabled: AUTH_ON, bot: TG_BOT_NAME, bot_id: TG_BOT_TOKEN.split(':')[0], user: u, persistent: SUPA_ON })
     }
     // A Telegram widget GET-tel tér vissza, a mezők a query-stringben ülnek.
     else if (url === '/api/auth/telegram') {

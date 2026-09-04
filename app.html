@@ -372,6 +372,14 @@ details.card>.body{padding-top:14px}
 .signgate .ttl{font-size:13px;font-weight:700;color:var(--tx)}
 .signgate .sub{font-size:12px;color:var(--faint);max-width:40ch;line-height:1.65}
 .signgate .gatebtn{margin-top:6px;min-height:32px}
+/* A kapu saját belépő-gombja. Nem a Telegram widgetje rajzolja, hanem mi —
+   lásd telegramLink() —, ezért a stílus is a miénk. A kék a Telegramé, hogy
+   a látogató ugyanazt a gombot ismerje fel, mint a lap tetején. */
+.signgate .tgbtn{display:inline-flex;align-items:center;gap:7px;background:#54a9eb;color:#fff;
+  border-radius:8px;padding:9px 17px;font-size:12.5px;font-weight:600;text-decoration:none;
+  line-height:1;transition:background .15s}
+.signgate .tgbtn:hover{background:#4a9bd8}
+.signgate .tgbtn svg{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
 /* ── lap-szintű kapu ────────────────────────────────────────────────────────
    A tartalom elhomályosítva marad LÁTHATÓ — a látogató lássa, mit kap, ha
    belép; egy üres lap nem árulna el semmit. Kattinthatatlan, hogy a
@@ -932,6 +940,21 @@ function telegramButton(size){
  sc.setAttribute('data-request-access','write')
  return sc
 }
+// A widget scriptje a saját document.currentScript-jéhez köti magát, és a lapon
+// MÁSODIK példányt már nem rajzolta ki: a topbar gombja megjelent, a kapué nem.
+// A kapuban ezért nem widgetet használunk, hanem sima linket ugyanarra a
+// belépő-URL-re, amit a widget is nyitna. Ugyanaz a folyamat és ugyanaz a
+// szerveroldali ellenőrzés (/api/auth/telegram), csak nem függ a példányszámtól.
+function telegramLink(){
+ const a=document.createElement('a')
+ a.className='tgbtn'
+ a.href='https://oauth.telegram.org/auth?bot_id='+encodeURIComponent(ME.bot_id)
+  +'&origin='+encodeURIComponent(location.origin)
+  +'&request_access=write'
+  +'&return_to='+encodeURIComponent(location.origin+'/api/auth/telegram')
+ a.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.04 15.47 8.7 20.2c.48 0 .69-.21.94-.46l2.25-2.15 4.66 3.41c.86.48 1.47.23 1.7-.79l3.08-14.42c.27-1.27-.46-1.77-1.29-1.46L1.9 9.55c-1.24.48-1.22 1.17-.21 1.48l4.6 1.43L17 6.14c.5-.33.96-.15.58.18z"/></svg>Log in with Telegram'
+ return a
+}
 function renderAuth(){
  const box=document.getElementById('authbox');if(!box)return
  if(ME.user){
@@ -977,7 +1000,7 @@ function applyGate(p){
    g.innerHTML='<div class="signgate"><div class="ico">🔒</div><div class="ttl">'+GATED[k][0]+'</div>'
     +'<div class="sub">'+GATED[k][1]+'</div><div class="gatebtn"></div></div>'
    s.appendChild(g)
-   g.querySelector('.gatebtn').appendChild(telegramButton('large'))
+   g.querySelector('.gatebtn').appendChild(ME.bot_id?telegramLink():telegramButton('large'))
   }
   if(!locked&&g)g.remove()
  }
