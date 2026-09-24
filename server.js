@@ -1481,7 +1481,16 @@ async function handler(req, res) {
 async function handleReq(req, res) {
   const json = (o, code = 200) => kuld(req, res, JSON.stringify(o), 'application/json; charset=utf-8', code)
   try {
-    const url = req.url.split('?')[0]   // query-string (pl. cache-buster ?_=…) levágása az útvonal-egyeztetéshez
+    // ── AZ ÚTVONAL VERCELEN ─────────────────────────────────────────────────
+    // A vercel.json minden kérést a `/api/index` függvényre ír át. A Vercel a
+    // függvénynek a rewrite CÉLJÁT adja át `req.url`-ben, nem az eredeti utat —
+    // vagyis ott minden kérés `/api/index`-ként érkezik, és a `/app`, `/api/me`
+    // stb. egyike sem illeszkedne. Ezért a rewrite a `__p` query-paraméterben
+    // átadja az eredetit (`destination: "/api/index?__p=$1"`), és itt azt olvassuk.
+    // Lokálisan (`node server.js`) nincs rewrite, `__p` sincs — ott a req.url a jó.
+    const _q = new URL(req.url, 'http://x')
+    const _p = _q.searchParams.get('__p')
+    const url = _p !== null ? '/' + _p.replace(/^\/+/, '') : req.url.split('?')[0]
     // Az oldal maga 166 kB (a base64 venue-logókkal együtt) — ez is menjen tömörítve.
     const html = (body) => kuld(req, res, body, 'text/html; charset=utf-8')
     if (url === '/' || url === '/index.html') { html(LANDING) }
@@ -1560,8 +1569,9 @@ async function handleReq(req, res) {
       // előbb. Egy Vercel cold starton viszont a mélyfúrás lehet az ELSŐ kérés a
       // példányon, és lastVenues nélkül minden venue "not listed"-ként jött vissza.
       await ensureScan()
-      const [path, qs] = url.slice(10).split('?')
-      const leg = +new URLSearchParams(qs || '').get('leg') || 3000
+      // `url` már tiszta útvonal (a __p-ből), a query-paraméterek a req.url-ön vannak
+      const path = url.slice(10)
+      const leg = +_q.searchParams.get('leg') || 3000
       json(await dive(decodeURIComponent(path).toUpperCase().replace(/[^A-Z0-9]/g, ''), leg))
     }
     else if (url.startsWith('/api/data')) { await ensureScan(); json(buildPayload()) }
