@@ -1631,7 +1631,8 @@ async function handleReq(req, res) {
       if (typeof b.wallet === 'string') { const w = b.wallet.trim(); if (w === '' || /^0x[0-9a-fA-F]{40}$/.test(w)) cfg.wallet = w }
       saveCfg(cfg); json({ ok: true })
     }
-    else { res.writeHead(404); res.end('not found') }
+    // A 404 megmondja, MILYEN útvonalat látott — enélkül egy elrontott routing néma.
+    else { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('not found: ' + url + ' (raw: ' + req.url + ')') }
   } catch (e) { json({ error: e.message }, 500) }
 }
 
