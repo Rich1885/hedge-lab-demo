@@ -57,7 +57,13 @@ async function supa(pathq, opts = {}) {
     },
   })
   if (!r.ok) throw new Error(`supabase ${r.status}: ${(await r.text()).slice(0, 200)}`)
-  return r.status === 204 ? null : r.json()
+  // `Prefer: return=minimal` esetén a PostgREST ÜRES törzzsel válaszol, és nem
+  // feltétlenül 204-gyel — egy beszúrás például 201 + semmi. A puszta
+  // `r.json()` ilyenkor „Unexpected end of JSON input"-tal száll el, ami a
+  // hívási helyen értelmezhetetlen hiba. Ezért a törzset olvassuk, és csak
+  // akkor parse-olunk, ha van mit.
+  const txt = await r.text()
+  return txt ? JSON.parse(txt) : null
 }
 
 // ── TELEGRAM LOGIN ────────────────────────────────────────────────
