@@ -622,9 +622,15 @@ details.card>.body{padding-top:14px}
 .crumb .sep{color:var(--faint);opacity:.55}
 .crumb .cur{font-size:14px;font-weight:800;letter-spacing:.3px;color:var(--tx)}
 .vpick{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
-.vpick button{background:none;border:1px solid var(--line2);border-radius:var(--r-sm);padding:5px 11px;color:var(--dim);font:700 11px/1 'Inter',system-ui,sans-serif;letter-spacing:.4px;cursor:pointer;transition:.13s}
+.vpick button{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--line2);border-radius:var(--r-sm);padding:5px 10px 5px 7px;color:var(--dim);font:700 11px/1 'Inter',system-ui,sans-serif;letter-spacing:.4px;cursor:pointer;transition:.13s}
 .vpick button:hover{border-color:var(--blue);color:var(--tx)}
 .vpick button.on{background:var(--bbg);border-color:#a78bfa55;color:var(--blue)}
+/* A nem választott venue-k logója halvány — így a kiválasztott azonnal kiugrik,
+   és a sor mégis megmutatja, mi közül lehet választani. */
+.vpick button .vlogo{width:15px;height:15px;border-radius:4px;opacity:.55;transition:opacity .13s}
+.vpick button:hover .vlogo,.vpick button.on .vlogo{opacity:1}
+.vpick button .vinit{display:inline-flex;align-items:center;justify-content:center;
+  background:var(--line2);color:var(--dim);font-size:9px;font-weight:800}
 .ptool{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px}
 .psearch{background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-sm);padding:7px 12px;color:var(--tx);font:500 12.5px/1 'Inter',system-ui,sans-serif;width:180px}
 .psearch:focus{outline:none;border-color:var(--blue)}
@@ -2061,8 +2067,17 @@ function renderPairs(){
  const tb=document.getElementById('prows');if(!tb)return
  const def=pairDef()
  document.getElementById('pcrumb').textContent='Variational ↔ '+def.nev
- document.getElementById('pvpick').innerHTML=PAIRVENUES.map(x=>
-  '<button class="'+(x.k===pairVenue?'on':'')+'" onclick="setPairVenue(\''+x.k+'\')">'+x.nev+'</button>').join('')
+ // Logóval, nem csak névvel: hat egyforma szöveg-pirula nem árulja el, hogy ez
+ // egy VÁLASZTÓ — a tőzsdejelek viszont ránézésre megmondják, hogy venue-k közül
+ // választasz. A kulcs már úgyis itt van (`logo`), ugyanaz, amit a tábla fejléce használ.
+ document.getElementById('pvpick').innerHTML=PAIRVENUES.map(x=>{
+  // A Phoenixnek nincs logója a venue-logos.json-ban. Kép helyett a kezdőbetűje
+  // megy ki, UGYANAKKORA dobozban — különben az a pirula kilógna a sorból.
+  const lg=(typeof VLOGO!=='undefined'&&VLOGO[x.logo])
+   ? '<img class="vlogo" src="'+VLOGO[x.logo]+'" alt="">'
+   : '<span class="vlogo vinit">'+x.nev.charAt(0)+'</span>'
+  return '<button class="'+(x.k===pairVenue?'on':'')+'" onclick="setPairVenue(\''+x.k+'\')">'+lg+'<span>'+x.nev+'</span></button>'
+ }).join('')
  // A venue-oszlop fejléce a kiválasztott kereszttel változik, ezért — a többi
  // fejléccel ellentétben — nem szerver-oldali <!--VTH--> helyőrző, hanem itt épül.
  const lg=(typeof VLOGO!=='undefined'&&VLOGO[def.logo])?'<img class="vlogo" src="'+VLOGO[def.logo]+'" alt="">':''
