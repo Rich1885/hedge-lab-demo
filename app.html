@@ -372,11 +372,17 @@ details.card>.body{padding-top:14px}
 .signgate .ttl{font-size:13px;font-weight:700;color:var(--tx)}
 .signgate .sub{font-size:12px;color:var(--faint);max-width:40ch;line-height:1.65}
 .signgate .gatebtn{margin-top:6px;min-height:32px}
-/* A kapu belépő-gombját a Telegram widgetje rajzolja, ugyanaz, mint a lap tetején —
-   így a látogató ugyanazt a gombot ismeri fel, és nincs saját stílusunk, ami
-   elavulhat. Ha a widget nem jön be, a gateFallback() ezt a sort teszi a helyére. */
-.signgate .gatehint{font-size:12px;color:var(--faint);line-height:1.6}
-.signgate .gatehint b{color:var(--dim);font-weight:700}
+/* A belépő-gomb megint a miénk: a Telegram widgetje kivezetett (lásd a
+   telegramButton() kommentjét), így a gombot is, a kattintás utáni állapotokat is
+   mi rajzoljuk. A kék a Telegramé, hogy ránézésre felismerhető maradjon. */
+.tgbtn{display:inline-flex;align-items:center;gap:7px;background:#54a9eb;color:#fff;border:none;
+  border-radius:8px;padding:10px 18px;font:inherit;font-size:12.5px;font-weight:600;
+  line-height:1;cursor:pointer;transition:background .15s,opacity .15s}
+.tgbtn:hover:not(:disabled){background:#4a9bd8}
+.tgbtn:disabled{opacity:.72;cursor:default}
+.tgbtn svg{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
+.tgbtn.sm{padding:6px 12px;font-size:11.5px;border-radius:7px}
+.tgbtn.sm svg{width:13px;height:13px}
 /* ── lap-szintű kapu ────────────────────────────────────────────────────────
    A tartalom elhomályosítva marad LÁTHATÓ — a látogató lássa, mit kap, ha
    belép; egy üres lap nem árulna el semmit. Kattinthatatlan, hogy a
@@ -927,47 +933,52 @@ async function loadMe(){
 // A Telegram widgetje egy script-tag, ami magát rendereli gombbá — külön kell egy
 // a topbarba (kicsi) és egy a History-kapuba (nagyobb), ezért közös segédfüggvény.
 //
-// ── MIÉRT NEM A WIDGET-SCRIPTET HASZNÁLJUK ─────────────────────────────────
-// A `telegram-widget.js` egyetlen dolgot csinál: kirak egy iframe-et az
-// `oauth.telegram.org/embed/<botnév>` címre. A beszúrás helyét viszont a saját
-// `document.currentScript`-jéből olvassa ki, és a lapon MÁSODIK példány sosem
-// rajzolódott ki — a topbar gombja megjelent, a kapué nem.
+// ── MIÉRT NINCS TELEGRAM-WIDGET ────────────────────────────────────────────
+// A Login Widgetet a Telegram 2026 szeptemberében kivezette. A saját kódjuk
+// (`telegram.org/js/widget-frame.js`) a gombra ezt teszi:
+//     window.open('/auth?bot_id=' + botId + …)      // az oauth.telegram.org-hoz képest
+// és az a végpont ma mindössze ennyit válaszol: `deprecated` (10 bájt). A gomb
+// kirajzolódik, a kattintás sehová nem visz, és ez a mi oldalunkról nem javítható.
+// (2026-09-24-én előbb a renderelést javítottam — a gomb megjelent, de a kattintás
+// ugyanúgy a halott végpontra ment. A hibát a megjelenés szintjén kerestem, pedig
+// a kattintás volt a lényeg.)
 //
-// 2026-09-24-én mindkét kézenfekvő megoldást lemértem élesben:
-//   • `async` nélkül, friss <script> elemmel a cél-konténerbe → TOVÁBBRA SEM renderel
-//   • az iframe-et magunk kirakva, ugyanazzal az URL-lel   → MINDKÉT példány kint van
-// Ezért a scriptet elhagyjuk, és azt az egy iframe-et tesszük ki, amit amúgy is csinálna.
-// Így nincs `currentScript`-függés, és a példányszám nem számít.
+// Helyette a bot deep-linkje léptet be, ami él és dokumentált:
+//   1. kérünk a szervertől egy egyszer használatos nonce-t
+//   2. megnyitjuk a t.me/<bot>?start=<nonce> linket — a felhasználó Startot nyom
+//   3. a Telegram a bot webhookján elküldi, KI nyomta meg
+//   4. itt másodpercenként kérdezünk, amíg a szerver be nem léptet
 //
-// Az URL-formátum a widget saját kimenetéből jön (a topbar iframe src-je):
-//   embed/<bot>?origin=…&return_to=…&size=…&request_access=write&radius=8
-//
-// ⚠ NE cseréld vissza `oauth.telegram.org/auth?bot_id=…`-ra. A 2026-09-04-i javítás
-// azt használta, és az a végpont ma MINDÖSSZE ennyit válaszol: `deprecated` (10 bájt).
-// A gomb megjelent, de sehová nem vitt. Az `embed` út ugyanakkor ép (1442 bájt,
-// „Log in with Telegram"), és a bot domainje is rendben — ha nem lenne, a Telegram
-// „Bot domain invalid"-ot küldene.
-const TG_SIZES={small:[137,28],large:[238,40]}
+// Ez egyben jobb is a widgetnél: a linket telefonon is meg lehet nyitni, miközben
+// a böngésző a gépen vár — a találkozási pont a szerveren a nonce.
+let TGPOLL=null
 function telegramButton(size){
- const [w,h]=TG_SIZES[size]||TG_SIZES.large
- const f=document.createElement('iframe')
- f.src='https://oauth.telegram.org/embed/'+encodeURIComponent(ME.bot)
-  +'?origin='+encodeURIComponent(location.origin)
-  +'&return_to='+encodeURIComponent(location.origin+'/api/auth/telegram')
-  +'&size='+size+'&request_access=write&radius=8'
- f.setAttribute('frameborder','0')
- f.setAttribute('scrolling','no')
- f.style.cssText='border:none;overflow:hidden;color-scheme:light dark;width:'+w+'px;height:'+h+'px'
- return f
+ const b=document.createElement('button')
+ b.className='tgbtn'+(size==='small'?' sm':'')
+ b.type='button'
+ b.innerHTML=TG_ICON+'<span>Log in with Telegram</span>'
+ b.onclick=()=>startTelegramLogin(b)
+ return b
 }
-// Ha a Telegram valamiért nem tölt be (blokkolt harmadik fél, hálózati hiba), a kapu
-// ne maradjon néma lakattal — pár másodperc után megmondjuk, hol a másik belépő.
-function gateFallback(box){
- setTimeout(()=>{
-  const f=box.querySelector('iframe')
-  if(f&&f.offsetHeight>0)return                  // betöltött, minden rendben
-  box.innerHTML='<span class="gatehint">Use the <b>Log in with Telegram</b> button at the top of the page.</span>'
- },4000)
+const TG_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.04 15.47 8.7 20.2c.48 0 .69-.21.94-.46l2.25-2.15 4.66 3.41c.86.48 1.47.23 1.7-.79l3.08-14.42c.27-1.27-.46-1.77-1.29-1.46L1.9 9.55c-1.24.48-1.22 1.17-.21 1.48l4.6 1.43L17 6.14c.5-.33.96-.15.58.18z"/></svg>'
+async function startTelegramLogin(btn){
+ if(TGPOLL)clearInterval(TGPOLL)
+ const eredeti=btn.innerHTML
+ btn.disabled=true; btn.innerHTML=TG_ICON+'<span>Opening Telegram…</span>'
+ let d
+ try{ d=await (await fetch('/api/auth/start',{method:'POST'})).json() }catch{ d=null }
+ if(!d||!d.url){ btn.disabled=false; btn.innerHTML=eredeti; return }
+ // Új fülön nyitjuk: a kattintás közvetlen következménye, tehát a popup-blokkoló átengedi.
+ window.open(d.url,'_blank')
+ btn.innerHTML=TG_ICON+'<span>Waiting for Telegram…</span>'
+ const vege=Date.now()+10*60*1000
+ TGPOLL=setInterval(async()=>{
+  if(Date.now()>vege){ clearInterval(TGPOLL); TGPOLL=null; btn.disabled=false; btn.innerHTML=eredeti; return }
+  let r
+  try{ r=await (await fetch('/api/auth/poll?n='+d.nonce,{cache:'no-store'})).json() }catch{ return }
+  if(r.state==='ok'){ clearInterval(TGPOLL); TGPOLL=null; loadMe(); }
+  else if(r.state==='expired'){ clearInterval(TGPOLL); TGPOLL=null; btn.disabled=false; btn.innerHTML=eredeti }
+ },2000)
 }
 function renderAuth(){
  const box=document.getElementById('authbox');if(!box)return
@@ -1016,7 +1027,6 @@ function applyGate(p){
    s.appendChild(g)
    const btnbox=g.querySelector('.gatebtn')
    btnbox.appendChild(telegramButton('large'))
-   gateFallback(btnbox)
   }
   if(!locked&&g)g.remove()
  }

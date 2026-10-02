@@ -84,6 +84,28 @@ function tgVerify(data) {
   if (Math.abs(Date.now() / 1000 - Number(data.auth_date)) > 86400) return null
   return { id: String(data.id), username: data.username || '', first_name: data.first_name || '' }
 }
+
+// ── BELÉPÉS A BOT DEEP-LINKJÉVEL ──────────────────────────────────────────
+// A fenti tgVerify a Login Widgethez készült. Azt a Telegram 2026 szeptemberében
+// kivezette: a saját widget-kódjuk (`telegram.org/js/widget-frame.js`) ezt teszi
+//     window.open('/auth?bot_id=' + botId + …)
+// az oauth.telegram.org-hoz képest — és az a végpont ma mindössze ennyit válaszol:
+// `deprecated` (10 bájt). A gomb kirajzolódik, a kattintás sehová nem visz, és a
+// mi oldalunkról ez nem javítható.
+//
+// A bot deep-linkje viszont él, és nem érint egyetlen kivezetett végpontot sem:
+// a felhasználó megnyitja a t.me/<bot>?start=<nonce> linket, Startot nyom, és a
+// Telegram a bot webhookján küldi el, hogy KI nyomta meg. Ez egyben jobb is:
+// a linket telefonon is meg lehet nyitni, miközben a böngésző a gépen vár.
+//
+// A webhook titka a bot tokenjéből származik, nem új env-változó: aki a tokent
+// ismeri, az úgyis mindent tud, aki meg nem, az ezt sem tudja kitalálni.
+const TG_HOOK_SECRET = TG_BOT_TOKEN
+  ? crypto.createHmac('sha256', TG_BOT_TOKEN).update('webhook').digest('hex').slice(0, 32) : ''
+const NONCE_TTL_MS = 10 * 60 * 1000
+const tgApi = (method, body) => fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/${method}`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+}).then((r) => r.json())
 // Session: aláírt süti, nem tárolt session-azonosító. Nincs mit lejáratni
 // szerveroldalon, és a Render újraindulása sem lépteti ki a felhasználót.
 function sign(payload) {
@@ -1523,6 +1545,81 @@ async function handleReq(req, res) {
         'Set-Cookie': `hl_session=${encodeURIComponent(sign(u))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''}`,
       })
       return res.end()
+    }
+    // ── 1. lépés: a böngésző kér egy nonce-t és a hozzá tartozó linket ──
+    else if (url === '/api/auth/start' && req.method === 'POST') {
+      if (!AUTH_ON || !SUPA_ON) return json({ error: 'auth off' }, 400)
+      const nonce = crypto.randomBytes(16).toString('hex')
+      await supa('login_nonce', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ nonce }) })
+      json({ nonce, url: `https://t.me/${TG_BOT_NAME}?start=${nonce}` })
+    }
+    // ── 3. lépés: a Telegram elküldi, KI nyomta meg a Startot ──
+    // A fejlécben lévő titok nélkül bárki beírhatná magát bárki nevében, ezért
+    // az az első, amit megnézünk. A választ mindig 200-zal zárjuk: a Telegram
+    // egy hibakódra újra és újra próbálkozna ugyanazzal az üzenettel.
+    else if (url === '/api/tg/webhook' && req.method === 'POST') {
+      if (!TG_HOOK_SECRET || req.headers['x-telegram-bot-api-secret-token'] !== TG_HOOK_SECRET) {
+        return json({ ok: true })
+      }
+      const upd = await readBody(req)
+      const msg = upd.message
+      const m = /^\/start\s+([0-9a-f]{32})$/.exec((msg && msg.text) || '')
+      if (m && msg.from && SUPA_ON) {
+        const nonce = m[1], from = msg.from
+        try {
+          // Csak még KI NEM TÖLTÖTT és le nem járt sort fogadunk el: így ugyanaz a
+          // link kétszer nem léptet be, és egy régi üzenet sem éleszthető újra.
+          const hatar = new Date(Date.now() - NONCE_TTL_MS).toISOString()
+          const sorok = await supa(`login_nonce?nonce=eq.${nonce}&telegram_id=is.null&created_at=gt.${hatar}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ telegram_id: String(from.id), username: from.username || '', first_name: from.first_name || '' }),
+          })
+          const ok = Array.isArray(sorok) && sorok.length > 0
+          await tgApi('sendMessage', {
+            chat_id: from.id,
+            text: ok ? '✅ Signed in — - the Hedge Lab tab in your browser will continue on its own.'
+                     : '⚠ This login link has expired or was already used. Press the button in the browser again.',
+          })
+        } catch (e) { console.error('[tg webhook]', e.message) }
+      }
+      json({ ok: true })
+    }
+    // ── 4. lépés: a böngésző lekérdezi, megjött-e a Start ──
+    // A nonce a sikerrel AZONNAL törlődik: ugyanaz a link másodszor már nem léptet be.
+    else if (url.startsWith('/api/auth/poll')) {
+      if (!AUTH_ON || !SUPA_ON) return json({ error: 'auth off' }, 400)
+      const nonce = String(_q.searchParams.get('n') || '').replace(/[^0-9a-f]/g, '')
+      if (nonce.length !== 32) return json({ error: 'bad nonce' }, 400)
+      const hatar = new Date(Date.now() - NONCE_TTL_MS).toISOString()
+      const sorok = await supa(`login_nonce?nonce=eq.${nonce}&created_at=gt.${hatar}&select=telegram_id,username,first_name`)
+      const sor = sorok && sorok[0]
+      if (!sor) return json({ state: 'expired' })
+      if (!sor.telegram_id) return json({ state: 'waiting' })
+      const u = { id: String(sor.telegram_id), username: sor.username || '', first_name: sor.first_name || '' }
+      await supa(`login_nonce?nonce=eq.${nonce}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }).catch(() => {})
+      try {
+        await supa('users?on_conflict=telegram_id', {
+          method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify({ telegram_id: u.id, username: u.username, first_name: u.first_name }),
+        })
+      } catch (e) { console.error('user upsert:', e.message) }
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Set-Cookie': `hl_session=${encodeURIComponent(sign(u))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''}`,
+      })
+      return res.end(JSON.stringify({ state: 'ok', user: u }))
+    }
+    // ── Egyszeri beállítás: a webhook bejelentése a Telegramnál ──
+    // A bot tokenje már a szerver környezetében van, tehát senkinek nem kell
+    // kézbe vennie. A titok ugyanabból a tokenből származik (TG_HOOK_SECRET).
+    else if (url === '/api/tg/setup') {
+      if (!AUTH_ON) return json({ error: 'auth off' }, 400)
+      const base = 'https://' + (req.headers['x-forwarded-host'] || req.headers.host)
+      const r = await tgApi('setWebhook', {
+        url: `${base}/api/tg/webhook`, secret_token: TG_HOOK_SECRET,
+        allowed_updates: ['message'], drop_pending_updates: true,
+      })
+      json({ sent_to: `${base}/api/tg/webhook`, telegram: r })
     }
     else if (url === '/api/auth/logout') {
       res.writeHead(302, { Location: '/app', 'Set-Cookie': 'hl_session=; Path=/; HttpOnly; Max-Age=0' })

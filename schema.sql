@@ -56,7 +56,32 @@ create table if not exists lab_snapshot (
 );
 create index if not exists lab_snapshot_ts_idx on lab_snapshot (ts);
 
+-- ── Belépés: egyszer használatos azonosítók ───────────────────────────────
+-- A Telegram Login Widget 2026 szeptemberében megszűnt: a saját widget-kódjuk
+-- az `oauth.telegram.org/auth` popupot nyitja, az pedig ma mindössze ennyit
+-- válaszol: `deprecated`. A gomb kirajzolódik, a kattintás sehová nem visz.
+--
+-- Helyette a bot deep-linkje lépteti be a felhasználót:
+--   1. az app ide beszúr egy friss nonce-t (telegram_id még üres)
+--   2. a felhasználó megnyitja a t.me/<bot>?start=<nonce> linket és Startot nyom
+--   3. a bot webhookja megkapja a /start <nonce>-ot, és ide írja, KI nyomta meg
+--   4. a böngésző lekérdezi, és megkapja a session-sütit
+--
+-- Ezért van itt sor: a 2. és a 3. lépés KÉT KÜLÖN eszközön történhet (a linket
+-- telefonon nyitod meg, a böngésző a gépen vár), tehát a kettő közt a szerveren
+-- kell valahol találkozniuk. A nonce 10 perc után érvénytelen, és belépés után
+-- azonnal törlődik, hogy egy kiszivárgott link ne legyen újrajátszható.
+create table if not exists login_nonce (
+  nonce       text primary key,
+  telegram_id text,                 -- a webhook tölti ki, amikor megjön a /start
+  username    text,
+  first_name  text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists login_nonce_created_idx on login_nonce (created_at);
+
 -- Ugyanaz a védelem, mint fent: RLS bekapcsolva, policy nélkül. Az anon kulcs
 -- semmit nem ér el, a szerver service kulcsa megkerüli.
 alter table user_config  enable row level security;
 alter table lab_snapshot enable row level security;
+alter table login_nonce  enable row level security;
