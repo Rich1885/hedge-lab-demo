@@ -383,6 +383,9 @@ details.card>.body{padding-top:14px}
 .tgbtn svg{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
 .tgbtn.sm{padding:6px 12px;font-size:11.5px;border-radius:7px}
 .tgbtn.sm svg{width:13px;height:13px}
+a.tgbtn{text-decoration:none}
+/* A link-állapot (lásd startTelegramLogin): ezt MEG KELL nyomni, tehát hívja fel magára a figyelmet. */
+.tgbtn.go{box-shadow:0 0 0 3px #54a9eb44;animation:pulse 1.6s 3}
 /* ── lap-szintű kapu ────────────────────────────────────────────────────────
    A tartalom elhomályosítva marad LÁTHATÓ — a látogató lássa, mit kap, ha
    belép; egy üres lap nem árulna el semmit. Kattinthatatlan, hogy a
@@ -526,6 +529,14 @@ details.card>.body{padding-top:14px}
 @media(max-width:720px){
   .topbar{position:static;height:auto;flex-wrap:wrap;padding:9px 13px;gap:8px 14px}
   .topbar .ts{margin-left:0;font-size:10.5px}
+  /* Első sor: márka balra, belépés és frissítés jobbra. Az árak külön sorba
+     kerülnek alájuk, balra zárva — középre igazítva két csonka sor lett belőlük. */
+  .tbright{margin-left:auto;gap:9px}
+  .tbmid{order:3;width:100%;margin:0;gap:14px;flex-wrap:wrap}
+  /* Best Pairs fejléc: a jobbra úsztatott szűrősor telefonon a cím mellé szorult,
+     és betűnként törte a „Best pairs" feliratot. Itt a cím alá kerül, saját sorba. */
+  #pg-strat h2{flex-wrap:wrap;row-gap:10px}
+  #pg-strat h2>span:last-child{float:none!important;flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .logo{font-size:14px}
   .tick{font-size:11.5px}
   th{top:0}
@@ -607,11 +618,26 @@ details.card>.body{padding-top:14px}
 .sfoot a:hover{color:var(--blue)}
 .mainpane{margin-left:206px}
 @media(max-width:860px){
-  .side{position:static;width:auto;flex-direction:row;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
+  .side{position:sticky;top:0;width:auto;flex-direction:row;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
   .sbrand{border-bottom:0}
-  .snav{flex-direction:row;flex:1;padding:8px 10px}
+  /* min-width:0 + overflow: enélkül a sor nem zsugorodik a tartalma alá, és az
+     utolsó lapok egyszerűen kilógtak a képernyőről, görgetés nélkül. */
+  .snav{flex-direction:row;flex:1;min-width:0;padding:8px 10px;overflow-x:auto;scrollbar-width:none}
+  .snav::-webkit-scrollbar{display:none}
+  .snavi{width:auto;white-space:nowrap;padding:9px 10px;gap:8px}
   .sfoot{display:none}
   .mainpane{margin-left:0}
+  /* A topbar itt már nem fér ki egy sorba (a „Sign out" kettétört, az idő kilógott). */
+  .topbar{position:static;height:auto;flex-wrap:wrap;padding:8px 14px;gap:8px 14px}
+  .authbox .lo{white-space:nowrap}
+}
+/* Telefon: öt egyforma fül, ikon a felirat fölött — mind az öt elfér egy sorban.
+   A márka itt kimarad, a topbar logója közvetlenül alatta úgyis ott van. */
+@media(max-width:640px){
+  .sbrand{display:none}
+  .snav{padding:4px 4px;gap:0}
+  .snavi{flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;gap:5px;padding:8px 2px;font-size:10px;letter-spacing:-.1px;border-radius:var(--r-xs)}
+  .snavi .si{width:auto;font-size:16px}
 }
 /* ── PAIRS SCANNER ─────────────────────────────────────────────────────────
    Egy kereszt (Variational ↔ másik venue) teljes képernyős nézete. Mind a hat
@@ -817,7 +843,7 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
   <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0">
   Leg ($): <input id="stleg" type="number" value="3000" step="100" min="50" style="width:80px;padding:5px 9px" oninput="saveLeg(this);renderStrat()">
   &nbsp;<button class="filt" id="eg-s" onclick="toggleEgyirS()" title="Only pairs where funding has you short the more expensive leg">✓ Alignment</button>
-  &nbsp;<button class="filt on" id="fs-all" onclick="setCatS('all')">Mind</button>
+  &nbsp;<button class="filt on" id="fs-all" onclick="setCatS('all')">All</button>
   <button class="filt" id="fs-RWA" onclick="setCatS('RWA')">RWA</button>
   <button class="filt" id="fs-alt" onclick="setCatS('alt')">Alt</button>
   <button class="filt" id="fs-major" onclick="setCatS('major')">Major</button></span></h2>
@@ -974,18 +1000,44 @@ async function startTelegramLogin(btn){
  let d
  try{ d=await (await fetch('/api/auth/start',{method:'POST'})).json() }catch{ d=null }
  if(!d||!d.url){ btn.disabled=false; btn.innerHTML=eredeti; return }
- // Új fülön nyitjuk: a kattintás közvetlen következménye, tehát a popup-blokkoló átengedi.
- window.open(d.url,'_blank')
- btn.innerHTML=TG_ICON+'<span>Waiting for Telegram…</span>'
+ // A window.open itt már NEM a kattintás közvetlen következménye: közte van egy
+ // hálózati kérés. Asztali böngésző ezt pár másodpercig még elnézi, a mobil
+ // Safari viszont nem — ott a hívás némán null-t ad, és a gomb örökre
+ // „Waiting for Telegram…"-on állt, miközben semmi nem nyílt meg.
+ // Ha a fül nem nyílt meg, a gomb helyére VALÓDI link kerül: arra koppintani
+ // mindig megengedett, és telefonon csak így nyílik közvetlenül a Telegram-app.
+ let w=null
+ try{ w=window.open(d.url,'_blank') }catch{}
+ let link=null
+ if(w){ btn.innerHTML=TG_ICON+'<span>Waiting for Telegram…</span>' }
+ else{
+  link=document.createElement('a')
+  link.className=btn.className+' go'
+  link.href=d.url; link.target='_blank'; link.rel='noopener'
+  link.innerHTML=TG_ICON+'<span>Open Telegram &rsaquo;</span>'
+  link.onclick=()=>{ link.innerHTML=TG_ICON+'<span>Waiting for Telegram…</span>' }
+  btn.replaceWith(link)
+ }
+ const vissza=()=>{ btn.disabled=false; btn.innerHTML=eredeti; if(link&&link.isConnected)link.replaceWith(btn) }
  const vege=Date.now()+10*60*1000
- TGPOLL=setInterval(async()=>{
-  if(Date.now()>vege){ clearInterval(TGPOLL); TGPOLL=null; btn.disabled=false; btn.innerHTML=eredeti; return }
+ let fut=false
+ const kerdez=async()=>{
+  if(fut||!TGPOLL)return
+  if(Date.now()>vege){ clearInterval(TGPOLL); TGPOLL=null; vissza(); return }
+  fut=true
   let r
-  try{ r=await (await fetch('/api/auth/poll?n='+d.nonce,{cache:'no-store'})).json() }catch{ return }
+  try{ r=await (await fetch('/api/auth/poll?n='+d.nonce,{cache:'no-store'})).json() }catch{ return }finally{ fut=false }
+  if(!TGPOLL)return
   if(r.state==='ok'){ clearInterval(TGPOLL); TGPOLL=null; loadMe(); }
-  else if(r.state==='expired'){ clearInterval(TGPOLL); TGPOLL=null; btn.disabled=false; btn.innerHTML=eredeti }
- },2000)
+  else if(r.state==='expired'){ clearInterval(TGPOLL); TGPOLL=null; vissza() }
+ }
+ TGPOLL=setInterval(kerdez,2000)
+ // Telefonon a Telegramból visszatérve a háttérben lévő fül időzítője még alszik —
+ // ne kelljen a következő ütemre várni, kérdezzünk azonnal.
+ TGWAKE=kerdez
 }
+let TGWAKE=null
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&TGPOLL&&TGWAKE)TGWAKE() })
 function renderAuth(){
  const box=document.getElementById('authbox');if(!box)return
  if(ME.user){
