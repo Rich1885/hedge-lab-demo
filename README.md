@@ -5,7 +5,8 @@ funding rates from seven perpetual venues, finds pairs where the same asset pays
 different funding on two of them, and sizes the position against the constraint that actually
 binds.
 
-**Live demo:** _(deploy URL)_ — interactive, in-memory, no wallet connected.
+**Live demo:** <https://hedge-lab-demo.vercel.app> — the dashboard is open to everyone; the
+scanner, ranking, position and journal screens ask for a Telegram sign-in.
 
 ---
 
@@ -35,6 +36,11 @@ publishes four different intervals across its symbols, so the interval must be r
 from `/fundingInfo` or every APR on that venue is wrong. Verifying Lighter's convention against
 Hyperliquid's hourly rate gave a ratio of exactly 8.000 — the published rate is 8h-equivalent
 even though settlement is hourly.
+
+An eighth venue, **Phoenix** (Solana), is wired in as a Variational cross only — it is not in
+the combined matrix. It ticks hourly, `fundingRate × 87.6` gives the annual percentage
+(calibrated against Hyperliquid), and its public API has no 24h volume, so that column shows
+open interest instead.
 
 ## Three columns that came out of live trading
 
@@ -68,34 +74,69 @@ negatives handled, unit set per series from its own median absolute value.
 
 ## What's in the app
 
-- **Scanner** — seven cross tables plus a combined multi-venue view, each with gap, alignment,
-  leverage cap, verdict, round-trip cost and break-even days
-- **Deep dive** — per-asset history, book depth at size, funding series, structural verdict
-- **Position panel** — funding-tick countdowns per leg, per-tick value, and a running funding
-  accumulator that credits the rate *in force at each tick boundary* rather than elapsed time ×
-  current rate (across one live round the hourly ticks ran 2.36 → 1.80 → 1.18 → 2.18 → 0.67 →
-  0.49; the closing rate would have implied $14.16 against an actual $8.68)
-- **Sizing** — liquidation distance from the venue's real maintenance-margin fraction, not the
-  nominal leverage
-- **Journal** — round P&L split into funding, basis and execution cost
+Five screens, plus a deep dive that opens from any row:
 
-Everything below the scanner is interactive. State lives in memory and resets on restart.
+- **Dashboard** — what each cross is worth right now, a heatmap of the best spread per venue
+  pair, and the raw funding matrix: every asset on all seven venues
+- **Pairs Scanner** — one cross at a time (Variational against Aster, edgeX, Lighter-RH,
+  Lighter, Nado or Phoenix), each row with gap, alignment, leverage cap, verdict, round-trip
+  cost and break-even days
+- **Best Pairs** — the scanner's whole universe scored and ordered; the score is the sum of
+  five measured components (spread, verdict, alignment, break-even, liquidity)
+- **Position** — sizing and stops, funding-tick countdowns per leg, a live price-gap strip
+  against the gap recorded at entry, and a running funding accumulator that credits the rate
+  *in force at each tick boundary* rather than elapsed time × current rate (across one live
+  round the hourly ticks ran 2.36 → 1.80 → 1.18 → 2.18 → 0.67 → 0.49; the closing rate would
+  have implied $14.16 against an actual $8.68). Liquidation distance comes from the venue's
+  real maintenance-margin fraction, not the nominal leverage
+- **History** — the journal: one line per closed round, net P&L and a note on the funding /
+  basis / fee split
+- **Deep dive** — per-asset history, book depth at size, funding series, structural verdict
+
+### Who sees what
+
+Sign-in is optional for whoever deploys it, and the app behaves differently in each case:
+
+| | Dashboard, deep dive | Pairs Scanner, Best Pairs, Position, History | Where state lives |
+|---|---|---|---|
+| No Telegram bot configured | open | open | server memory, one shared session |
+| Bot configured, visitor not signed in | open | behind a sign-in card | — |
+| Signed in | open | open | Supabase, per Telegram account |
+
+A signed-in user's configuration, open round (entry price, entry gap, opening time, funding
+accrued so far) and journal are stored per account, so a round follows them between devices
+and survives a restart.
+
+The gate is in the page, not in the API: the market-data endpoints below stay public.
+Journal writes are the exception — the server refuses them without a session.
 
 ## Data
 
-Seeded with **99 hourly snapshots** collected since 16 August 2026 across ~700 pairs, so the
-history-dependent columns are populated on first load. It keeps measuring while it runs.
+The repository ships **99 hourly snapshots** taken 16–20 August 2026 across ~700 pairs. Each
+snapshot holds funding rate and price per venue per symbol. Nothing else is recorded.
+
+While it runs, the server adds at most one snapshot per hour, taken when a scan runs, and
+keeps 30 days. With Supabase configured each snapshot is also written to a shared
+`lab_snapshot` table and read back on boot.
+
+Two consequences:
+
+- The seed is older than the 30-day window, so it ages out at the first live snapshot. From
+  then on the history columns (7-day average, verdict, charts) show what the instance or
+  Supabase has collected.
+- On Vercel a scan only runs when somebody has the app open, so the history has a row only
+  for the hours that saw traffic.
 
 ```
 GET /                     → landing page (overview, conventions, signals)
-GET /app                  → the dashboard itself
-GET /api/archive          → available days
+GET /app                  → the app
+GET /api/scan             → full computed scanner payload (cached 60 s)
+GET /api/dive/<symbol>    → per-asset detail, series, book depth (?leg=<usd>)
+GET /api/series/<symbol>  → that asset's series from the stored history only
+GET /api/archive          → days that have snapshots
 GET /api/archive/<day>    → that day's hourly snapshots
-GET /api/scan             → full computed scanner payload
-GET /api/dive/<symbol>    → per-asset detail, series, book depth
+GET /api/me               → whether sign-in is enabled and who is signed in
 ```
-
-Each snapshot holds funding rate and price per venue per symbol. Nothing else is recorded.
 
 ## Running it
 
@@ -103,8 +144,9 @@ Each snapshot holds funding rate and price per venue per symbol. Nothing else is
 npm start          # http://localhost:8879
 ```
 
-No API keys, no database, no build step. Node 18+. Everything runs in memory, so the
-journal resets on restart.
+No API keys, no database, no build step, no dependencies. Node 18+. Without any environment
+variables there is no sign-in, nothing is gated, and everything — settings, open round,
+journal — lives in memory and resets on restart. `PORT` changes the port.
 
 ## Deployment
 
@@ -113,31 +155,30 @@ One service, one domain. The same Node process serves the landing page (`/`), th
 
 ```
 Vercel     serverless        landing + app + API
-Supabase   free project      users + journal          (recommended on Vercel)
-Telegram   login only        no messages are sent     (optional)
+Supabase   free project      users, journal, settings, history, login   (recommended on Vercel)
+Telegram   login only        one "signed in" reply per login             (optional, needs Supabase)
 ```
 
 `server.js` runs two ways from the same code: locally it starts a real, always-on
 `http.createServer` (`node server.js`); on Vercel, `api/index.js` re-exports the same
 request handler as a serverless function, and `vercel.json` rewrites every path — `/`,
-`/app`, `/api/*` — to it, so the whole app stays on one origin (which Telegram's login
-requires) without a second service or a proxy layer.
+`/app`, `/api/*` — to it, so the whole app stays on one origin without a second service or a
+proxy layer. The rewrite passes the original path along as `?__p=…`, because Vercel hands
+the function the rewrite target rather than the path the visitor asked for.
 
 **The tradeoff of serverless is state.** A serverless function has no persistent memory
 between requests — a different one (or a fresh cold start) can serve the next call.
 Concretely, on Vercel:
 
-- **Signed-in journals are unaffected** — they live in Supabase, not in the function.
-- **Anonymous journals** (no Supabase configured) fall back to in-memory storage, which
-  on Vercel is unreliable across requests — entries can appear to vanish. Set `SUPA_URL`
-  / `SUPA_KEY` if you want the journal to actually work for visitors who don't sign in.
-- **The 7-day history and verdict badges stop accumulating** past the seeded seed data —
-  each cold start resets to the shipped snapshot rather than recording a new one. The
-  scanner, deep dive and every other panel are unaffected; only the "keeps measuring
-  while it runs" line in the Data section below doesn't hold on Vercel the way it does
-  on a persistent server.
+- **Signed-in users are unaffected** — their journal, settings and open round live in
+  Supabase, not in the function.
+- **Without Supabase** all of that falls back to in-memory storage, which on Vercel is
+  unreliable across requests — entries can appear to vanish.
+- **The history only grows with Supabase.** Without it, each cold start resets to the
+  shipped seed. With it, snapshots persist, but only for the hours in which someone used
+  the app (see Data above).
 - **The scan cache is best-effort, not guaranteed** — a `/api/scan` request may land on
-  a cold instance and re-run the full 7-venue fetch (~5s) instead of hitting a warm
+  a cold instance and re-run the full venue fetch (~5s) instead of hitting a warm
   60-second cache. Slower under load, never broken.
 
 None of this needs any setup to deploy — `vercel deploy` or connecting the repo on
@@ -147,39 +188,62 @@ what makes `git clone && npm start` work locally with zero setup.
 
 | Variable | Effect when unset |
 |---|---|
-| `SUPA_URL`, `SUPA_KEY` | journal falls back to memory (unreliable on Vercel, fine locally) |
-| `TG_BOT_TOKEN`, `TG_BOT_NAME` | no sign-in button; the app is fully usable anonymously |
+| `SUPA_URL`, `SUPA_KEY` | everything falls back to memory (unreliable on Vercel, fine locally). `SUPA_KEY` is the service key; it stays on the server |
+| `TG_BOT_TOKEN`, `TG_BOT_NAME` | no sign-in and no gate; the app is fully usable anonymously |
 | `SESSION_SECRET` | random per boot — on Vercel, set this explicitly, or every cold start invalidates existing sessions |
 
-For persistence, run [`schema.sql`](schema.sql) once in the Supabase SQL editor.
+Set the Telegram variables only together with the Supabase ones. The sign-in flow stores
+its one-time codes in Supabase, so a bot without a database switches the gate on with no
+way through it.
+
+For persistence, run [`schema.sql`](schema.sql) once in the Supabase SQL editor. Row-level
+security is on with no policies, so only the server's service key can reach the tables.
 
 `render.yaml` is also in the repo: a persistent Node server has none of the tradeoffs
 above, at the cost of a real server to run. It works standalone if you'd rather use it.
 
 ### Telegram sign-in
 
-Telegram has no separate identity provider: **the bot is the application registration**,
-the way an OAuth client ID is elsewhere, and its token is the secret used to verify the
-signature Telegram puts on the login payload. This bot never sends or receives a message.
+Sign-in goes through the bot's deep link. Telegram's Login Widget stopped working in
+September 2026 — its `oauth.telegram.org/auth` popup now answers `deprecated` — so the
+button it drew led nowhere.
+
+1. The browser asks the server for a one-time code and gets a `t.me/<bot>?start=<code>` link.
+2. The user opens the link and presses **Start** — on any device, including a phone while
+   the browser waits on a desktop.
+3. Telegram delivers that `/start <code>` to the bot's webhook, which records who pressed
+   it and replies with a one-line confirmation.
+4. The browser, polling in the meantime, receives the session cookie.
+
+Setup:
 
 1. Create a bot in [@BotFather](https://t.me/BotFather) — use a **separate** bot, not one
-   already wired to something else, since its token has to live in the server environment.
-2. `/setdomain` → the domain the app is served from. Telegram accepts exactly one per bot,
-   which is the other reason everything sits behind a single origin.
-3. Set `TG_BOT_TOKEN` and `TG_BOT_NAME` as environment variables on Vercel.
+   already wired to something else: its token has to live in the server environment, and a
+   bot has only one webhook.
+2. Run [`schema.sql`](schema.sql) in Supabase (it creates the `login_nonce` table).
+3. Set `TG_BOT_TOKEN`, `TG_BOT_NAME`, `SESSION_SECRET` and the Supabase variables on Vercel.
+4. Open `https://<your-domain>/api/tg/setup` once. It registers
+   `https://<your-domain>/api/tg/webhook` with Telegram and prints Telegram's answer.
 
-Verification follows Telegram's documented scheme — HMAC-SHA256 over the sorted fields,
-keyed by `SHA256(bot_token)`, with a 24-hour freshness check on `auth_date` so an
-intercepted login URL cannot be replayed forever. The session is a signed cookie rather
-than server-side state, so a restart does not sign anyone out.
+What keeps it honest:
 
-Signed-in users get their own journal. Anonymous visitors can still use every panel; their
-entries live in server memory and disappear on restart.
+- The webhook only accepts calls carrying the secret header Telegram was given at setup.
+  The secret is derived from the bot token, so there is no extra variable to manage.
+- A code is 32 random hex characters, valid for 10 minutes, accepted once, and deleted the
+  moment it signs someone in.
+- The session is a signed, HttpOnly cookie valid for 30 days rather than server-side state,
+  so a restart does not sign anyone out.
+
+The old widget callback (`/api/auth/telegram`, HMAC-SHA256 over the sorted fields keyed by
+`SHA256(bot_token)`) is still in the code but nothing calls it any more.
 
 ## Scope
 
-This is a public demo built from a private system that trades real capital. Position tracking,
-alerting and the live trade journal are not part of this repository; the wallet field is inert
-and the journal starts empty. Everything here is public market data.
+This is a public demo built from a private system that trades real capital. Nothing here
+can place an order: there are no private keys, no signing and no exchange credentials
+anywhere in the code. The optional wallet field takes a public address and only reads that
+address's open positions on Nado and Lighter, to compare them with the round you are
+tracking. The private system's own trade history is not part of this repository, and every
+journal starts empty.
 
 Advisory only. Not financial advice.
