@@ -141,8 +141,29 @@ const CFG_DEFAULT = {
   entry_price_btc: null, entry_price_eth: null, beep_on_flip: true,
   same_va: 'Variational', same_vb: 'Aster',   // same-asset kereszt két platformja (választható)
   fund_acc: null,   // { platform: {usd, last, ticks} } — a nyitott kör óta gyűlt funding
+  alerts: null,   // Telegram-riasztások beállítása — lásd alertPrefs()
   wallet: '',   // publikus tárcacím — ebből olvassuk ki a VALÓDI pozíciókat (csak olvasás)
 }
+// ── TELEGRAM-RIASZTÁSOK: BEÁLLÍTÁS ────────────────────────────────────────
+// Felhasználónként, a configban. Minden kártya ALAPBÓL KI van kapcsolva: a bot
+// a belépéshez kell, abból nem következik, hogy bárki üzeneteket is kér tőle.
+//   pos  — a nyitott kör állapota szintet váltott (funding fordult, spread szűkül)
+//   gap  — a rés a belépéshez képest átlépte a `gap_usd` küszöböt
+//   tick — a nyitott kör következő funding-tickje előtt `tick_min` perccel
+//   opp  — új A osztályú pár a rés-figyelőben (nem pozícióhoz kötött)
+// A KÜLDÉS egy folyamatosan futó munkás dolga lesz — a Vercel csak akkor fut,
+// amikor valaki épp nézi az oldalt. Itt egyelőre a beállítás és a próbaüzenet él.
+const ALERT_DEFAULT = { pos: false, gap: false, tick: false, opp: false, tick_min: 20, gap_usd: 10 }
+function alertPrefs(cfg) { return { ...ALERT_DEFAULT, ...((cfg && cfg.alerts) || {}) } }
+function alertClean(b) {
+  const szam = (v, min, max, alap) => { const n = Number(v); return isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : alap }
+  return {
+    pos: !!b.pos, gap: !!b.gap, tick: !!b.tick, opp: !!b.opp,
+    tick_min: szam(b.tick_min, 5, 180, ALERT_DEFAULT.tick_min),
+    gap_usd: szam(b.gap_usd, 1, 10000, ALERT_DEFAULT.gap_usd),
+  }
+}
+const _testAt = new Map()   // telegram_id → utolsó próbaüzenet ideje
 // platform-megjelenítőnév → lastVenues kulcs
 const VMAP = { Variational: 'Vari', Ethereal: 'Ethereal', Nado: 'Nado', Lighter: 'Lighter', Aster: 'Aster', edgeX: 'EdgeX', Phoenix: 'Phoenix', 'Lighter-RH': 'RhLighter' }
 // Ami itt nincs benne, azt a pozíció-panelen nem lehet kiválasztani — hiába látszik a
@@ -1411,7 +1432,7 @@ function buildPayload() {
       const n = Object.values(v || {}).filter((x) => x && x.vol !== 0 && x.apr != null).length
       return [k, { live: n > 0, listings: n }]
     })),
-    state: { active_config: active, entry_price_btc: cfg.entry_price_btc, entry_price_eth: cfg.entry_price_eth, entry_price_asset: cfg.entry_price_asset, capital_v: capV, capital_m: capM, margin_per_leg: marginLeg, leverage: lev, same_asset: cfg.same_asset, same_va: cfg.same_va, same_vb: cfg.same_vb, wallet: cfg.wallet || '' },
+    state: { active_config: active, entry_price_btc: cfg.entry_price_btc, entry_price_eth: cfg.entry_price_eth, entry_price_asset: cfg.entry_price_asset, capital_v: capV, capital_m: capM, margin_per_leg: marginLeg, leverage: lev, same_asset: cfg.same_asset, same_va: cfg.same_va, same_vb: cfg.same_vb, wallet: cfg.wallet || '', alerts: alertPrefs(cfg) },
     rebalance: reb, alerts, live: reconcile(cfg),
     tick: { legs: tickLegs, asset: tickAsset },
   }
@@ -1782,7 +1803,27 @@ async function handleReq(req, res) {
       if (VENUE_OPTS.includes(b.same_vb)) cfg.same_vb = b.same_vb
       // tárcacím: üresen hagyva kikapcsolja a pozíció-tükröt; csak érvényes címet fogadunk el
       if (typeof b.wallet === 'string') { const w = b.wallet.trim(); if (w === '' || /^0x[0-9a-fA-F]{40}$/.test(w)) cfg.wallet = w }
+      // Riasztást csak belépett felhasználó állíthat: név nélkül nincs kinek küldeni.
+      if (b.alerts && typeof b.alerts === 'object' && currentUid()) cfg.alerts = alertClean(b.alerts)
       saveCfg(cfg); json({ ok: true })
+    }
+    // Próbaüzenet: megmutatja, hogy a bot tényleg el tudja érni a felhasználót —
+    // ha valaki letiltotta a botot, az itt derül ki, nem az első éles riasztásnál.
+    else if (url === '/api/alerts/test' && req.method === 'POST') {
+      const u = currentUser(req)
+      if (!AUTH_ON || !u) return json({ error: 'sign in required' }, 401)
+      const elozo = _testAt.get(u.id) || 0
+      if (Date.now() - elozo < 20000) return json({ error: 'Wait a few seconds before sending another test.' }, 429)
+      _testAt.set(u.id, Date.now())
+      const a = alertPrefs(loadCfg())
+      const be = [a.pos && 'position status', a.gap && `gap move over $${a.gap_usd}`, a.tick && `tick reminder ${a.tick_min} min ahead`, a.opp && 'new gap-watch entries'].filter(Boolean)
+      const r = await tgApi('sendMessage', {
+        chat_id: u.id, parse_mode: 'HTML',
+        text: '🔔 <b>Hedge Lab test alert</b>\nThis is where your alerts will arrive.\n\n'
+          + (be.length ? 'Switched on: ' + be.join(', ') + '.' : 'Nothing is switched on yet — pick the alerts you want on the Position page.'),
+      })
+      if (!r || !r.ok) return json({ error: (r && r.description) || 'Telegram did not accept the message' }, 502)
+      json({ ok: true })
     }
     // A 404 megmondja, MILYEN útvonalat látott — enélkül egy elrontott routing néma.
     else { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('not found: ' + url + ' (raw: ' + req.url + ')') }

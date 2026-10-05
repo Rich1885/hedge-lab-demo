@@ -297,6 +297,26 @@ button.accent:hover{background:var(--gbg);border-color:var(--green);color:var(--
 .sgroup>.t-label{color:var(--blue)}
 .sgroup>.t-label{padding-bottom:7px;border-bottom:1px solid var(--sep)}
 .sfields{display:flex;flex-wrap:wrap;gap:12px}
+/* Telegram-riasztások: a teljes szélességet kapja, mert négy kapcsoló leírással
+   nem fér el fél oszlopban. A kapcsoló egész sora kattintható, nem csak a csúszka. */
+.algroup{grid-column:1/-1}
+.altogs{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+#settings .altog{display:flex;align-items:flex-start;gap:11px;margin:0;grid-column:auto;justify-self:stretch;padding:11px 13px;text-align:left;background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-sm);color:var(--dim);cursor:pointer;font:inherit;transition:border-color .13s,background .13s}
+#settings .altog:hover{border-color:var(--blue)}
+#settings .altog.on{border-color:#a78bfa66;background:var(--bbg)}
+.alsw{flex:0 0 auto;width:30px;height:17px;border-radius:999px;background:var(--line2);position:relative;margin-top:1px;transition:background .13s}
+.alsw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--faint);transition:transform .13s,background .13s}
+.altog.on .alsw{background:var(--blue)}
+.altog.on .alsw::after{transform:translateX(13px);background:#fff}
+.altx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.altx b{font-size:12.5px;font-weight:700;color:var(--tx)}
+.altx span{font-size:11.5px;line-height:1.45;color:var(--dim)}
+.alfoot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#settings .altest{margin:0;padding:7px 14px;background:transparent;border:1px solid #54a9eb88;border-radius:var(--r-sm);color:#54a9eb;font:600 11.5px/1 'Inter',system-ui,sans-serif;cursor:pointer}
+#settings .altest:hover:not(:disabled){background:#54a9eb18}
+#settings .altest:disabled{opacity:.6;cursor:default}
+.alnote{font-size:11.5px;line-height:1.5;color:var(--faint)}
+.alnote b{color:var(--dim)}
 .sfields .field{flex:1 1 165px;min-width:0}
 #settings .field{width:100%}
 #settings button{grid-column:1/-1;margin:4px 0 0;justify-self:start;padding:9px 24px}
@@ -1477,9 +1497,55 @@ function applyCfgOpen(){
  if(b)b.textContent=cfgOpen?'Hide':'Edit'
 }
 function toggleCfg(){cfgOpen=!cfgOpen;try{localStorage.setItem('dn_cfg_open',cfgOpen?'1':'0')}catch{};applyCfgOpen()}
+// ── TELEGRAM-RIASZTÁSOK BLOKK ───────────────────────────────────────────────
+// Négy kapcsoló és két küszöb, a többi beállítással együtt mentve. Belépés nélkül
+// nincs kinek küldeni, ezért ott a blokk csak ennyit mond — nem mutat olyan
+// kapcsolót, ami semmit nem csinálna.
+const ALERT_KINDS=[
+ ['pos','Position status','When your open round changes state: funding flipped, the spread is narrowing, close or wait.'],
+ ['gap','Gap move','When the price gap has moved against (or for) you by more than the amount below since entry.'],
+ ['tick','Tick reminder','Ahead of the next funding tick on your open round: when it lands, what it pays, which side collects.'],
+ ['opp','New entries','When a pair reaches grade A on the Gap Watch. Not tied to your position.'],
+]
+function alertBlock(al){
+ const fej='<div class="sgroup algroup"><div class="t-label">Telegram alerts</div>'
+ if(!ME.user)return fej+'<div class="alnote">'+(ME.enabled?'Sign in with Telegram to choose alerts — they are sent by the same bot you sign in with.':'Alerts need a Telegram sign-in, which is not configured on this server.')+'</div></div>'
+ return fej
+  +'<div class="altogs">'+ALERT_KINDS.map(([k,nev,mit])=>
+    '<button type="button" class="altog'+(al[k]?' on':'')+'" id="al_'+k+'" aria-pressed="'+(al[k]?'true':'false')+'" onclick="alertToggle(this)">'
+    +'<span class="alsw"></span><span class="altx"><b>'+nev+'</b><span>'+mit+'</span></span></button>').join('')+'</div>'
+  +'<div class="sfields">'
+   +'<div class="field"><input id="al_tick_min" inputmode="numeric" placeholder=" " value="'+(al.tick_min??20)+'"><label>Tick reminder · minutes ahead</label></div>'
+   +'<div class="field"><input id="al_gap_usd" inputmode="numeric" placeholder=" " value="'+(al.gap_usd??10)+'"><label>Gap move · threshold $</label></div>'
+  +'</div>'
+  +'<div class="alfoot"><button type="button" class="altest" id="al_test" onclick="alertTest(this)">Send a test message</button>'
+   +'<span class="alnote" id="al_msg">Your choices are saved with <b>Save</b>. Scheduled delivery is being rolled out — the test message works today.</span></div>'
+  +'</div>'
+}
+function alertToggle(b){const on=!b.classList.contains('on');b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false')}
+function alertRead(){
+ if(!document.getElementById('al_pos'))return null
+ const o={};for(const [k] of ALERT_KINDS)o[k]=document.getElementById('al_'+k).classList.contains('on')
+ o.tick_min=+document.getElementById('al_tick_min').value;o.gap_usd=+document.getElementById('al_gap_usd').value
+ return o
+}
+// A próba ELŐTT ment: a próbaüzenet azt sorolja fel, ami be van kapcsolva, és
+// félrevezető lenne, ha a még el nem mentett állapotot hagyná ki.
+async function alertTest(btn){
+ const msg=document.getElementById('al_msg'),al=alertRead()
+ btn.disabled=true;msg.className='alnote';msg.textContent='Sending…'
+ try{
+  if(al)await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alerts:al})})
+  const r=await (await fetch('/api/alerts/test',{method:'POST'})).json()
+  if(r.ok){msg.className='alnote g';msg.textContent='Sent — check Telegram.'}
+  else{msg.className='alnote r';msg.textContent='Could not send: '+(r.error||'unknown error')}
+ }catch(e){msg.className='alnote r';msg.textContent='Could not reach the server.'}
+ btn.disabled=false
+}
 async function saveSettings(){
  const b={capital_v:+document.getElementById("cv").value,capital_m:+document.getElementById("cm").value,margin_per_leg:+document.getElementById("ml").value,leverage:+document.getElementById("lv").value,mode:document.getElementById("md").value,same_asset:document.getElementById("sa").value,same_va:document.getElementById("sva").value,same_vb:document.getElementById("svb").value}
  b.wallet=(document.getElementById("wal")?document.getElementById("wal").value:"").trim()
+ const al=alertRead();if(al)b.alerts=al
  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});load(true)}
 
 // ── fő betöltés (dashboard payload) ──
@@ -1632,6 +1698,7 @@ async function load(force){
      +fs("sa","Same-asset symbol",assetOpts(st.same_va||"Variational",st.same_vb||"Ethereal",d.same?d.same.asset:(st.same_asset||"ENA"))))
    +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"),' onchange="refreshAssetSel()"')+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal"),' onchange="refreshAssetSel()"'))
    +grp('Wallet','<div class="field" style="flex:1;min-width:240px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>')
+   +alertBlock(st.alerts||{})
    +'<button class="accent" onclick="saveSettings()">Save</button>'
   // Az összefoglaló: ugyanaz négy számban, amit az űrlap nyolc mezőben mond.
   // Becsukva ez marad látható, nyitva pedig fölösleges görgetés nélkül ellenőrizhető.
