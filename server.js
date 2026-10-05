@@ -364,8 +364,14 @@ function gapStat(sym, aV, bV) {
     if (v.length >= 12) {
       const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }
       const m = med(v)
-      out = { n: v.length, median: m, mad: med(v.map((x) => Math.abs(x - m))) }
-    } else out = { n: v.length, median: null, mad: null }
+      const mad = med(v.map((x) => Math.abs(x - m)))
+      // Sodródás: az első és az utolsó harmad mediánja, MAD-egységben. Ha a rés
+      // tartósan egy irányba megy (kiszáradó likviditás, elszakadó venue), az nem
+      // „visszatérésre váró" rés, hanem trend — arra fogadni csapda.
+      const t = Math.floor(v.length / 3)
+      const drift = (mad > 0 && t >= 4) ? (med(v.slice(-t)) - med(v.slice(0, t))) / (mad * 1.4826) : null
+      out = { n: v.length, median: m, mad, drift }
+    } else out = { n: v.length, median: null, mad: null, drift: null }
   }
   _gapStatMemo.set(kulcs, out)
   return out
@@ -393,6 +399,31 @@ function pairHistory(sym, shortV, longV, curDiff) {
   }
   return { ageH, capped: ageH != null && ageH === diffs.length, avg7d }
 }
+// ── RÉS-FIGYELŐ ─────────────────────────────────────────────────────────────
+// A rés-visszatérésre fogadni csak akkor van értelme, ha a mostani rés a pár
+// SAJÁT sávjához képest szélsőséges. Az abszolút érték semmit nem mond: 0,05%
+// az egyik páron zaj, a másikon extrém. Ezért minden kereszt-sor megkapja, hány
+// MAD-ra van a rése a saját mediánjától (`z`) és sodródik-e (`drift`).
+//
+// Az előjel végig a priceGap()-é — (Vari − másik) / másik —, a történetben és a
+// mostani értékben is. A szülő projektben a történet (short − long) / long
+// alakban állt, a mostani rés viszont Vari-alapú volt: ha a short láb nem a
+// Vari, a kettő előjele szembefordult. Itt egyetlen konvenció van.
+//
+// A ×1,4826 a normális eloszlásra vett szokásos skálázás, hogy a szám nagyjából
+// „szórásnyiban" legyen olvasható.
+function gapWatch(sym, other, curGap) {
+  const st = gapStat(sym, 'Vari', other)
+  if (!st || curGap == null) return { n: (st && st.n) || 0 }
+  if (st.median == null) return { n: st.n }
+  const z = st.mad > 0 ? (curGap - st.median) / (st.mad * 1.4826) : null
+  return { n: st.n, med: st.median, mad: st.mad, z, drift: st.drift }
+}
+// A rés-figyelő TAKER díjjal számol, nem makerrel: a rést kapkodva kell elkapni,
+// tehát piaci megbízást adsz. A szülő naplója mérte ki (08-23-i NEAR-kör: nyitáskor
+// és záráskor is pontosan 3,50 bp a Nadón). A többi tábla `costRT`-je maker marad —
+// ott limitre van idő. Nyit + zár, frakcióban.
+const FEE_TAKER_RT = { Lighter: 0, RhLighter: 0, Ethereal: 0.0006, Nado: 0.0007, Phoenix: 0.0007, Aster: 0.0007, EdgeX: 0.00076 }
 // Vari spread mindig a legpontosabb elérhető forrásból: élő könyv @ $1k (spread1k), csak ha nincs,
 // akkor esik vissza a kiírt nominális base_spread_bps-re (sb).
 function variSpreadFrac(vv) { return vv?.spread1k ?? (vv?.sb != null ? vv.sb / 1e4 : null) }
@@ -981,6 +1012,15 @@ async function scan() {
   const edgexvari = buildVariCross(edx, 'EdgeX')
   const rhlvari = buildVariCross(rhl, 'RhLighter')
 
+  // Rés-figyelő mezők, egy helyen mind a hat keresztre. A sor `costRT`-je a Vari
+  // könyv-spreadje + a másik láb MAKER díja; a taker-változat ugyanaz a Vari-rész,
+  // csak a másik láb díja cserélődik.
+  for (const [list, other] of [[nadovari, 'Nado'], [comp, 'Lighter'], [phxvari, 'Phoenix'], [astervari, 'Aster'], [edgexvari, 'EdgeX'], [rhlvari, 'RhLighter']]) {
+    for (const r of list) {
+      r.gapH = gapWatch(r.sym, other, r.gap)
+      r.costTk = r.costRT - legRoundTripCost(other, null) + (FEE_TAKER_RT[other] || 0)
+    }
+  }
   recordSnapshot(vari, eth, nado, li.lighter, phx, ast, edx, rhl)
   // élő pozíciók frissítése — sosem dobhat, a hiba csak annyit jelent, hogy nincs tükör
   try { const w = loadCfg().wallet; const lp = await fetchLivePositions(w); if (lp) _livePos.set(w, lp) } catch {}

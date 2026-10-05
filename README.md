@@ -74,7 +74,7 @@ negatives handled, unit set per series from its own median absolute value.
 
 ## What's in the app
 
-Five screens, plus a deep dive that opens from any row:
+Six screens, plus a deep dive that opens from any row:
 
 - **Dashboard** — what each cross is worth right now, a heatmap of the best spread per venue
   pair, and the raw funding matrix: every asset on all seven venues
@@ -83,6 +83,13 @@ Five screens, plus a deep dive that opens from any row:
   cost and break-even days
 - **Best Pairs** — the scanner's whole universe scored and ordered; the score is the sum of
   five measured components (spread, verdict, alignment, break-even, liquidity)
+- **Gap Watch** — every cross in one list, ranked by suitability for a *gap reversion*
+  rather than by spread. Each pair's current price gap is measured against its own history
+  (distance from its median in MAD units, and whether it is drifting rather than swinging),
+  then scored on five components: capturable gap against the taker cost of the round trip,
+  stretch, liquidity, alignment and carry. Pairs that fail outright — too little history,
+  a gap that does not cover its cost, a thin book, a drift — are graded *Excluded* with the
+  reason shown. A pair needs 12 hourly price measurements before it can be graded
 - **Position** — sizing and stops, funding-tick countdowns per leg, a live price-gap strip
   against the gap recorded at entry, and a running funding accumulator that credits the rate
   *in force at each tick boundary* rather than elapsed time × current rate (across one live
@@ -97,7 +104,7 @@ Five screens, plus a deep dive that opens from any row:
 
 Sign-in is optional for whoever deploys it, and the app behaves differently in each case:
 
-| | Dashboard, deep dive | Pairs Scanner, Best Pairs, Position, History | Where state lives |
+| | Dashboard, deep dive | Pairs Scanner, Best Pairs, Gap Watch, Position, History | Where state lives |
 |---|---|---|---|
 | No Telegram bot configured | open | open | server memory, one shared session |
 | Bot configured, visitor not signed in | open | behind a sign-in card | — |
