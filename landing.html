@@ -71,7 +71,7 @@ code{background:var(--card2);border:1px solid var(--line2);border-radius:4px;pad
       <a class="btn pri" href="/app">Launch App</a>
       <a class="btn ghost" href="#how">How it works</a>
     </div>
-    <p class="note">Read-only demo · live market data, 90-second refresh · no wallet connected, no capital at risk<br>
+    <p class="note">Read-only demo · live market data, 90-second refresh · cannot place a trade, no capital at risk<br>
     Heuristics are advisory and may be wrong. Not financial advice.</p>
   </div>
 
@@ -143,7 +143,7 @@ code{background:var(--card2);border:1px solid var(--line2);border-radius:4px;pad
     <h2>What the app does</h2>
     <div class="cards">
       <div class="c"><div class="ic">▦</div><h3>Scanner</h3>
-        <p>Seven cross tables plus a combined view, each with gap, alignment, leverage cap,
+        <p>Six cross tables plus a combined view, each with gap, alignment, leverage cap,
         verdict, round-trip cost and break-even days.</p></div>
       <div class="c"><div class="ic">◉</div><h3>Deep dive</h3>
         <p>Per-asset history, order-book depth at your size, funding series on a symlog axis, and
@@ -173,9 +173,9 @@ code{background:var(--card2);border:1px solid var(--line2);border-radius:4px;pad
   </div>
 
   <div class="foot">
-    Public demo of the scanner half of a private system that trades real capital. Position
-    tracking, alerting and the live journal are not included; the wallet field is inert and the
-    journal starts empty. Everything here is public market data.<br><br>
+    Public demo of a private system that trades real capital. Nothing here can place an order:
+    the optional wallet field takes a public address and only reads its open positions. The
+    private system's own trade history is not included, and every journal starts empty.<br><br>
     Advisory only. Not financial advice.
   </div>
 </div>
