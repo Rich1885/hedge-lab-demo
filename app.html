@@ -447,33 +447,29 @@ details.card>.body{padding-top:14px}
    query — az előbbi a kártyát méri, az utóbbi az ablakot, és emiatt tört szét a
    diagram egy százpixeles sávba, miközben a képernyőn bőven volt hely. */
 .tickwrap{container-type:inline-size}
-.ffgrid{flex-basis:100%;display:grid;grid-template-columns:1fr;gap:14px;align-items:start}
-@container (min-width:700px){
-  .ffgrid{grid-template-columns:minmax(0,1fr) minmax(290px,330px)}
-}
+/* Korábban ez két oszlop volt: balra a diagram, jobbra a három csempe. A csempék
+   viszont alacsonyak, a diagram meg magas — a kártya jobb alsó NEGYEDE üresen állt,
+   miközben a chart egy szűkebb sávba szorult. Most minden szám EGY sorban fut
+   felül, a diagram pedig a teljes szélességet kapja. */
+.ffgrid{flex-basis:100%;display:block}
 .ffhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
 .ffhead .winsel{margin-left:auto}
 .fbars{margin-bottom:2px}
 .fchart{display:flex;gap:8px}
 .fchart svg{display:block;flex:1;min-width:0}
 .fyax{display:flex;flex-direction:column;justify-content:space-between;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;text-align:right;min-width:52px}
-/* A két napi összeg a diagram fölött, középen a csere-ikonnal — ez a fejléc
-   mondja meg egy pillantásra, melyik láb hoz és melyik visz. */
-.fnets{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
-.fnet .v{font-size:20px;font-weight:800;letter-spacing:-.6px;margin:3px 0 2px}
-.fnet .v .d{font-size:12px;font-weight:600}
+/* Az ÖT szám egyetlen sorban, egyforma csempékben: mennyit kapsz, mennyit fizetsz,
+   mikor jön a tick, mennyit ér, és mekkora a ráta. Ez az a sor, amiért a kártyát
+   megnyitod — a diagram alatta már a részletezés. Egyforma dobozokban, mert
+   egymás mellé tartoznak; a két pénzáramot a SZÍN különbözteti meg, nem a méret. */
+.ffstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:8px;margin-bottom:14px}
+.ffstats .ftile .v{font-size:18px}
 .fnet.g .v{color:var(--green)} .fnet.r .v{color:var(--red)}
-.fswap{width:28px;height:28px;border-radius:50%;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:13px;flex:none}
+.fnet .v .d{font-size:11.5px;font-weight:600;color:var(--dim)}
 .fxax{display:flex;justify-content:space-between;gap:6px;font-size:9.5px;color:var(--faint);font-family:"Cascadia Mono",Consolas,monospace;margin:4px 0 0 54px;white-space:nowrap;overflow:hidden}
 .fxax .now{color:var(--dim);font-weight:700}
 .fcap{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-family:"Cascadia Mono",Consolas,monospace;margin:5px 0 0 54px;white-space:nowrap;overflow:hidden}
-/* Nincs min-width: a `auto` oszlop + a csempék max-content szélessége együtt vitte
-   el a helyet a diagram elől. Így a csempék annyit kapnak, amennyi jut, és szűk
-   kártyán egyszerűen a chart ALÁ kerülnek egy sorban. */
-.fftiles{display:grid;gap:7px;grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
-.fftiles .ftile{padding:9px 10px}
-.fftiles .ftile .v{font-size:15px}
-.legrow,.ffhead,.fftiles{min-width:0}
+.legrow,.ffhead,.ffstats{min-width:0}
 .ftile{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px}
 .ftile .v{font-size:17px;font-weight:800;letter-spacing:-.4px;margin:4px 0 2px;font-family:"Cascadia Mono",Consolas,monospace}
 .ftile.y{border-color:#f59e0b55}
@@ -1159,7 +1155,7 @@ function renderTicks(){
     const ld=legDaily(MEASD&&MEASD.same)
     // A mockup fejléce: a két oldal napi összege a diagram FÖLÖTT, nem apró
     // felirat alatta. Ez az a két szám, amiért a kártyát megnyitod.
-    const oldal=(o,kap)=>o?'<div class="fnet '+(kap?'g':'r')+'"><div class="t-label">'+(kap?'You receive':'You pay')+'</div>'
+    const oldal=(o,kap)=>o?'<div class="ftile fnet '+(kap?'g':'r')+'"><div class="t-label">'+(kap?'You receive':'You pay')+'</div>'
       +'<div class="v mono">'+(o.usd>=0?'+$':'−$')+Math.abs(o.usd).toFixed(2)+' <span class="d">/day</span></div>'
       +'<div class="t-meta">'+vNev(o.venue)+'</div></div>':''
     const kapo=ld?(ld.short.usd>=ld.long.usd?ld.short:ld.long):null
@@ -1168,17 +1164,20 @@ function renderTicks(){
       +'<div class="ffhead"><span class="t-label">Funding flow</span>'
       +'<span class="t-meta">hourly, on your side — you are '+(shortOnVari?'SHORT':'LONG')+' Variational</span>'
       +'<span class="winsel">'+win(1,'1H')+win(4,'4H')+win(8,'8H')+win(12,'12H')+'</span></div>'
-      +(ld?'<div class="fnets">'+oldal(kapo,true)+'<span class="fswap">⇄</span>'+oldal(fizeto,false)+'</div>':'')
+      // Mind az öt szám EGY sorban: a két pénzáram és a három tick-adat. Korábban a
+      // két csoport külön oszlopban ült, és a jobb oldali alacsonyabb volt — alatta
+      // üresen maradt a kártya negyede.
+      +'<div class="ffstats">'+oldal(kapo,true)+oldal(fizeto,false)
+      +csempe('Next funding','<span id="cd-next">--:--:--</span>',kov?kov.venue:'—')
+      +csempe('Est. next tick',vL2.tick_usd==null?'—':(kapV2==null?'$':(kapV2?'+$':'−$'))+vL2.tick_usd.toFixed(2),
+              kov?'in '+perc(kov.ms):'',kapV2==null?'d':kapV2?'g':'r')
+      +csempe('Funding rate',vL2.apr==null?'—':pct(vL2.apr,2),'annualised · Variational',vL2.apr==null?'d':vL2.apr>=0?'g':'r')
+      +'</div>'
       // Kevés mérésből nem lesz szép diagram, akárhogy rajzolom. Ha nyolcnál
       // kevesebb pont esik az ablakba, kimondjuk, hányból dolgozunk — különben
       // két kövér hasáb úgy néz ki, mintha a felület lenne rossz.
       +(w.szuk?'':'<div class="winnote" style="margin:0 0 9px">Only '+w.ablakban+' measurement'+(w.ablakban===1?'':'s')+' inside '+posWin+'H — showing all '+w.keep.length+' instead. The shape needs continuous hourly data: the demo ships a seed and only keeps measuring while the server stays up.</div>')
       +fundBars(w.keep.map(i=>MEASS.v[i]),w.keep.map(i=>MEASS.t[i]),leg,shortOnVari,600,76)
-      +'</div><div class="fftiles">'
-      +csempe('Next funding','<span id="cd-next">--:--:--</span>',kov?kov.venue:'—')
-      +csempe('Est. next tick',vL2.tick_usd==null?'—':(kapV2==null?'$':(kapV2?'+$':'−$'))+vL2.tick_usd.toFixed(2),
-              kov?'in '+perc(kov.ms):'',kapV2==null?'d':kapV2?'g':'r')
-      +csempe('Funding rate',vL2.apr==null?'—':pct(vL2.apr,2),'annualised · Variational',vL2.apr==null?'d':vL2.apr>=0?'g':'r')
       +'</div></div>'
   }
   el.innerHTML=fej+'<div class="legrow">'+legs.map((L,i)=>{
