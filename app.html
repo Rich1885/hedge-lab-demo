@@ -222,6 +222,11 @@ td.nnote{text-align:left;white-space:normal;min-width:260px;font-size:12px;color
 /* A chip semleges: nem hordoz irányt vagy előjelet, ezért nem kap szerep-színt. */
 .chip{display:inline-block;color:var(--dim);background:#ffffff0a;border-radius:var(--r-xs);padding:2px 8px;font-size:10.5px;font-weight:600}
 .badge{display:inline-block;background:var(--gold);color:#12161c;font-weight:800;border-radius:var(--r-xs);padding:2px 9px;font-size:10px;letter-spacing:.5px;margin-left:auto}
+.linkbtn{cursor:pointer;background:var(--bbg);border:1px solid var(--line2);border-radius:var(--r-xs);padding:3px 8px;color:var(--tx);font:700 10.5px/1.3 'Inter',system-ui,sans-serif;white-space:nowrap}
+.linkbtn:hover{border-color:var(--blue);color:var(--blue)}
+.gwsum{font-size:12px;color:var(--dim);margin:-6px 0 12px;line-height:1.6}
+.gwsum b{color:var(--tx)}
+.gwwhy{text-align:left;white-space:normal;font-size:11px;min-width:190px;max-width:300px;line-height:1.45}
 .thin{color:var(--yellow);background:var(--ybg);border:1px solid #f59e0b44;border-radius:var(--r-xs);padding:0 5px;font-size:9.5px;font-weight:700;margin-left:6px}
 /* ── venue-fejléc: logó + név ──────────────────────────────────────────────
    A hét venue-oszlop pusztán szövegként egyforma szürke tömb volt; a szem nem
@@ -292,6 +297,26 @@ button.accent:hover{background:var(--gbg);border-color:var(--green);color:var(--
 .sgroup>.t-label{color:var(--blue)}
 .sgroup>.t-label{padding-bottom:7px;border-bottom:1px solid var(--sep)}
 .sfields{display:flex;flex-wrap:wrap;gap:12px}
+/* Telegram-riasztások: a teljes szélességet kapja, mert négy kapcsoló leírással
+   nem fér el fél oszlopban. A kapcsoló egész sora kattintható, nem csak a csúszka. */
+.algroup{grid-column:1/-1}
+.altogs{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+#settings .altog{display:flex;align-items:flex-start;gap:11px;margin:0;grid-column:auto;justify-self:stretch;padding:11px 13px;text-align:left;background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-sm);color:var(--dim);cursor:pointer;font:inherit;transition:border-color .13s,background .13s}
+#settings .altog:hover{border-color:var(--blue)}
+#settings .altog.on{border-color:#a78bfa66;background:var(--bbg)}
+.alsw{flex:0 0 auto;width:30px;height:17px;border-radius:999px;background:var(--line2);position:relative;margin-top:1px;transition:background .13s}
+.alsw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--faint);transition:transform .13s,background .13s}
+.altog.on .alsw{background:var(--blue)}
+.altog.on .alsw::after{transform:translateX(13px);background:#fff}
+.altx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.altx b{font-size:12.5px;font-weight:700;color:var(--tx)}
+.altx span{font-size:11.5px;line-height:1.45;color:var(--dim)}
+.alfoot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#settings .altest{margin:0;padding:7px 14px;background:transparent;border:1px solid #54a9eb88;border-radius:var(--r-sm);color:#54a9eb;font:600 11.5px/1 'Inter',system-ui,sans-serif;cursor:pointer}
+#settings .altest:hover:not(:disabled){background:#54a9eb18}
+#settings .altest:disabled{opacity:.6;cursor:default}
+.alnote{font-size:11.5px;line-height:1.5;color:var(--faint)}
+.alnote b{color:var(--dim)}
 .sfields .field{flex:1 1 165px;min-width:0}
 #settings .field{width:100%}
 #settings button{grid-column:1/-1;margin:4px 0 0;justify-self:start;padding:9px 24px}
@@ -383,6 +408,9 @@ details.card>.body{padding-top:14px}
 .tgbtn svg{width:15px;height:15px;fill:currentColor;flex:0 0 auto}
 .tgbtn.sm{padding:6px 12px;font-size:11.5px;border-radius:7px}
 .tgbtn.sm svg{width:13px;height:13px}
+a.tgbtn{text-decoration:none}
+/* A link-állapot (lásd startTelegramLogin): ezt MEG KELL nyomni, tehát hívja fel magára a figyelmet. */
+.tgbtn.go{box-shadow:0 0 0 3px #54a9eb44;animation:pulse 1.6s 3}
 /* ── lap-szintű kapu ────────────────────────────────────────────────────────
    A tartalom elhomályosítva marad LÁTHATÓ — a látogató lássa, mit kap, ha
    belép; egy üres lap nem árulna el semmit. Kattinthatatlan, hogy a
@@ -522,6 +550,14 @@ details.card>.body{padding-top:14px}
 @media(max-width:720px){
   .topbar{position:static;height:auto;flex-wrap:wrap;padding:9px 13px;gap:8px 14px}
   .topbar .ts{margin-left:0;font-size:10.5px}
+  /* Első sor: márka balra, belépés és frissítés jobbra. Az árak külön sorba
+     kerülnek alájuk, balra zárva — középre igazítva két csonka sor lett belőlük. */
+  .tbright{margin-left:auto;gap:9px}
+  .tbmid{order:3;width:100%;margin:0;gap:14px;flex-wrap:wrap}
+  /* Best Pairs fejléc: a jobbra úsztatott szűrősor telefonon a cím mellé szorult,
+     és betűnként törte a „Best pairs" feliratot. Itt a cím alá kerül, saját sorba. */
+  #pg-strat h2,#pg-gap h2{flex-wrap:wrap;row-gap:10px}
+  #pg-strat h2>span:last-child,#pg-gap h2>span:last-child{float:none!important;flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .logo{font-size:14px}
   .tick{font-size:11.5px}
   th{top:0}
@@ -603,11 +639,26 @@ details.card>.body{padding-top:14px}
 .sfoot a:hover{color:var(--blue)}
 .mainpane{margin-left:206px}
 @media(max-width:860px){
-  .side{position:static;width:auto;flex-direction:row;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
+  .side{position:sticky;top:0;width:auto;flex-direction:row;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
   .sbrand{border-bottom:0}
-  .snav{flex-direction:row;flex:1;padding:8px 10px}
+  /* min-width:0 + overflow: enélkül a sor nem zsugorodik a tartalma alá, és az
+     utolsó lapok egyszerűen kilógtak a képernyőről, görgetés nélkül. */
+  .snav{flex-direction:row;flex:1;min-width:0;padding:8px 10px;overflow-x:auto;scrollbar-width:none}
+  .snav::-webkit-scrollbar{display:none}
+  .snavi{width:auto;white-space:nowrap;padding:9px 10px;gap:8px}
   .sfoot{display:none}
   .mainpane{margin-left:0}
+  /* A topbar itt már nem fér ki egy sorba (a „Sign out" kettétört, az idő kilógott). */
+  .topbar{position:static;height:auto;flex-wrap:wrap;padding:8px 14px;gap:8px 14px}
+  .authbox .lo{white-space:nowrap}
+}
+/* Telefon: öt egyforma fül, ikon a felirat fölött — mind az öt elfér egy sorban.
+   A márka itt kimarad, a topbar logója közvetlenül alatta úgyis ott van. */
+@media(max-width:640px){
+  .sbrand{display:none}
+  .snav{padding:4px 4px;gap:0}
+  .snavi{flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;gap:5px;padding:8px 2px;font-size:10px;letter-spacing:-.1px;border-radius:var(--r-xs)}
+  .snavi .si{width:auto;font-size:16px}
 }
 /* ── PAIRS SCANNER ─────────────────────────────────────────────────────────
    Egy kereszt (Variational ↔ másik venue) teljes képernyős nézete. Mind a hat
@@ -681,6 +732,7 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
     <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si">▦</span>Dashboard</button>
     <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si">⇄</span>Pairs Scanner</button>
     <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si">★</span>Best Pairs</button>
+    <button class="snavi"    id="nav-gap"   onclick="showPage('gap')"><span class="si">◆</span>Gap Watch</button>
     <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si">◎</span>Position</button>
     <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si">◷</span>History</button>
   </nav>
@@ -717,8 +769,8 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
     below has anything to show. A few seconds, not a miracle. Hang on.</p>
   </div>
   <p>Live scanner across <b>Variational, Ethereal, Nado, Lighter, Lighter&nbsp;on&nbsp;Robinhood&nbsp;Chain,
-  Aster</b> and <b>edgeX</b>. Panels below are <b>fully interactive</b> &mdash; state lives in memory
-  and resets on restart. No wallet connected, no capital at risk.</p>
+  Aster</b> and <b>edgeX</b>. Panels below are <b>fully interactive</b> &mdash; once you sign in,
+  your settings, open round and journal are saved to your account. Nothing here can place a trade; no capital at risk.</p>
   <p class="src">Live market data, 90 s refresh &middot; seeded with 99 hourly snapshots since 16 Aug 2026
   &middot; raw measurements at <code>/api/archive</code></p>
 </div>
@@ -813,12 +865,33 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
   <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0">
   Leg ($): <input id="stleg" type="number" value="3000" step="100" min="50" style="width:80px;padding:5px 9px" oninput="saveLeg(this);renderStrat()">
   &nbsp;<button class="filt" id="eg-s" onclick="toggleEgyirS()" title="Only pairs where funding has you short the more expensive leg">✓ Alignment</button>
-  &nbsp;<button class="filt on" id="fs-all" onclick="setCatS('all')">Mind</button>
+  &nbsp;<button class="filt on" id="fs-all" onclick="setCatS('all')">All</button>
   <button class="filt" id="fs-RWA" onclick="setCatS('RWA')">RWA</button>
   <button class="filt" id="fs-alt" onclick="setCatS('alt')">Alt</button>
   <button class="filt" id="fs-major" onclick="setCatS('major')">Major</button></span></h2>
   <div class="sgrid" id="srows"></div>
   <div class="hint">The <b>score</b> is not a black box: five measured components add up to it — spread, verdict, alignment, break-even and liquidity. Hover the score for the breakdown. Click a card for the deep dive.</div>
+</div>
+</section>
+
+<!-- ══ GAP WATCH · entry points ranked by gap reversion ══ -->
+<section id="pg-gap" style="display:none">
+<div class="card">
+  <h2>◆ Gap watch <span class="cnt" id="gw_cnt"></span>
+  <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0">
+  Leg ($): <input id="gwleg" type="number" value="3000" step="100" min="50" style="width:80px;padding:5px 9px" oninput="saveLeg(this);renderGapWatch()">
+  &nbsp;<button class="filt on" id="gk-A" onclick="toggleGwGrade('A')" title="Ready to enter">A</button>
+  <button class="filt on" id="gk-B" onclick="toggleGwGrade('B')" title="Conditional">B</button>
+  <button class="filt" id="gk-C" onclick="toggleGwGrade('C')" title="Worth watching">C</button>
+  <button class="filt" id="gk-X" onclick="toggleGwGrade('X')" title="Ruled out — switch on to see why">Excluded</button></span></h2>
+  <div class="gwsum" id="gw_sum"></div>
+  <div class="tscroll"><table><thead><tr><th>Grade</th><th>Score</th><th style="text-align:left">Asset</th><th>Type</th><th style="text-align:left">Direction</th><th>Open</th><th>Gap</th><th>Median</th><th>Gap / cost</th><th>Stretch</th><th>Aligned</th><th>Vol S / L</th><th>Leg / vol</th><th>Carry</th><th>Verdict</th><th style="text-align:left">Why</th></tr></thead><tbody id="gwrows"></tbody></table></div>
+  <div class="hint">Every cross in one list, ranked by how suitable the pair is for a <b>gap reversion</b> — not by spread. The score adds up five measured components (hover it for the breakdown), and each threshold came out of a real round.
+  <b>Gap / cost</b> — the <i>capturable</i> gap divided by the open-and-close cost at taker fees. The gap returns to the pair's own median, not to zero, so only the distance to the median counts. One round had a $3.70 gap against a $3.81 cost: unwinnable before it started. <b>Below 2× it is not worth it.</b>
+  <b>Stretch</b> — how many deviations the gap sits from its own median. 2–8σ is the useful band; <b>above 15σ it is more likely a break than a mispricing</b>, so that is penalised, not rewarded.
+  <b>Leg / vol</b> — your leg as a share of the thinner venue's daily volume. At 10% and above you are the book.
+  <b>Carry</b> — what funding pays per day while you wait for the reversion.
+  A pair needs <b>12 hourly price measurements</b> before it can be graded at all; until then it is listed under Excluded.</div>
 </div>
 </section>
 
@@ -970,18 +1043,44 @@ async function startTelegramLogin(btn){
  let d
  try{ d=await (await fetch('/api/auth/start',{method:'POST'})).json() }catch{ d=null }
  if(!d||!d.url){ btn.disabled=false; btn.innerHTML=eredeti; return }
- // Új fülön nyitjuk: a kattintás közvetlen következménye, tehát a popup-blokkoló átengedi.
- window.open(d.url,'_blank')
- btn.innerHTML=TG_ICON+'<span>Waiting for Telegram…</span>'
+ // A window.open itt már NEM a kattintás közvetlen következménye: közte van egy
+ // hálózati kérés. Asztali böngésző ezt pár másodpercig még elnézi, a mobil
+ // Safari viszont nem — ott a hívás némán null-t ad, és a gomb örökre
+ // „Waiting for Telegram…"-on állt, miközben semmi nem nyílt meg.
+ // Ha a fül nem nyílt meg, a gomb helyére VALÓDI link kerül: arra koppintani
+ // mindig megengedett, és telefonon csak így nyílik közvetlenül a Telegram-app.
+ let w=null
+ try{ w=window.open(d.url,'_blank') }catch{}
+ let link=null
+ if(w){ btn.innerHTML=TG_ICON+'<span>Waiting for Telegram…</span>' }
+ else{
+  link=document.createElement('a')
+  link.className=btn.className+' go'
+  link.href=d.url; link.target='_blank'; link.rel='noopener'
+  link.innerHTML=TG_ICON+'<span>Open Telegram &rsaquo;</span>'
+  link.onclick=()=>{ link.innerHTML=TG_ICON+'<span>Waiting for Telegram…</span>' }
+  btn.replaceWith(link)
+ }
+ const vissza=()=>{ btn.disabled=false; btn.innerHTML=eredeti; if(link&&link.isConnected)link.replaceWith(btn) }
  const vege=Date.now()+10*60*1000
- TGPOLL=setInterval(async()=>{
-  if(Date.now()>vege){ clearInterval(TGPOLL); TGPOLL=null; btn.disabled=false; btn.innerHTML=eredeti; return }
+ let fut=false
+ const kerdez=async()=>{
+  if(fut||!TGPOLL)return
+  if(Date.now()>vege){ clearInterval(TGPOLL); TGPOLL=null; vissza(); return }
+  fut=true
   let r
-  try{ r=await (await fetch('/api/auth/poll?n='+d.nonce,{cache:'no-store'})).json() }catch{ return }
+  try{ r=await (await fetch('/api/auth/poll?n='+d.nonce,{cache:'no-store'})).json() }catch{ return }finally{ fut=false }
+  if(!TGPOLL)return
   if(r.state==='ok'){ clearInterval(TGPOLL); TGPOLL=null; loadMe(); }
-  else if(r.state==='expired'){ clearInterval(TGPOLL); TGPOLL=null; btn.disabled=false; btn.innerHTML=eredeti }
- },2000)
+  else if(r.state==='expired'){ clearInterval(TGPOLL); TGPOLL=null; vissza() }
+ }
+ TGPOLL=setInterval(kerdez,2000)
+ // Telefonon a Telegramból visszatérve a háttérben lévő fül időzítője még alszik —
+ // ne kelljen a következő ütemre várni, kérdezzünk azonnal.
+ TGWAKE=kerdez
 }
+let TGWAKE=null
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&TGPOLL&&TGWAKE)TGWAKE() })
 function renderAuth(){
  const box=document.getElementById('authbox');if(!box)return
  if(ME.user){
@@ -1013,6 +1112,7 @@ function renderAuth(){
 // app nyitva marad — a `git clone && npm start` így nulla konfigurációval megy.
 const GATED={pairs:['Sign in to use the scanner','Every cross, every asset both venues list — with the price gap, the leverage cap and the verdict on each.'],
              strat:['Sign in to see the ranked pairs','The scanner’s whole universe scored and ordered, so you do not have to read seven tables.'],
+             gap:['Sign in to use the gap watch','Every cross in one list, ranked by whether the price gap is stretched against its own history and worth more than it costs to trade.'],
              track:['Sign in to track a position','Entry price, price gap and funding accumulate against your account, so the round follows you between devices.'],
              hist:['Sign in to see your journal','Each Telegram account gets its own journal — nobody else can read or write to it, and it is not tied to this browser or device.']}
 function applyGate(p){
@@ -1396,9 +1496,55 @@ function applyCfgOpen(){
  if(b)b.textContent=cfgOpen?'Hide':'Edit'
 }
 function toggleCfg(){cfgOpen=!cfgOpen;try{localStorage.setItem('dn_cfg_open',cfgOpen?'1':'0')}catch{};applyCfgOpen()}
+// ── TELEGRAM-RIASZTÁSOK BLOKK ───────────────────────────────────────────────
+// Négy kapcsoló és két küszöb, a többi beállítással együtt mentve. Belépés nélkül
+// nincs kinek küldeni, ezért ott a blokk csak ennyit mond — nem mutat olyan
+// kapcsolót, ami semmit nem csinálna.
+const ALERT_KINDS=[
+ ['pos','Position status','When your open round changes state: funding flipped, the spread is narrowing, close or wait.'],
+ ['gap','Gap move','When the price gap has moved against (or for) you by more than the amount below since entry.'],
+ ['tick','Tick reminder','Ahead of the next funding tick on your open round: when it lands, what it pays, which side collects.'],
+ ['opp','New entries','When a pair reaches grade A on the Gap Watch. Not tied to your position.'],
+]
+function alertBlock(al){
+ const fej='<div class="sgroup algroup"><div class="t-label">Telegram alerts</div>'
+ if(!ME.user)return fej+'<div class="alnote">'+(ME.enabled?'Sign in with Telegram to choose alerts — they are sent by the same bot you sign in with.':'Alerts need a Telegram sign-in, which is not configured on this server.')+'</div></div>'
+ return fej
+  +'<div class="altogs">'+ALERT_KINDS.map(([k,nev,mit])=>
+    '<button type="button" class="altog'+(al[k]?' on':'')+'" id="al_'+k+'" aria-pressed="'+(al[k]?'true':'false')+'" onclick="alertToggle(this)">'
+    +'<span class="alsw"></span><span class="altx"><b>'+nev+'</b><span>'+mit+'</span></span></button>').join('')+'</div>'
+  +'<div class="sfields">'
+   +'<div class="field"><input id="al_tick_min" inputmode="numeric" placeholder=" " value="'+(al.tick_min??20)+'"><label>Tick reminder · minutes ahead</label></div>'
+   +'<div class="field"><input id="al_gap_usd" inputmode="numeric" placeholder=" " value="'+(al.gap_usd??10)+'"><label>Gap move · threshold $</label></div>'
+  +'</div>'
+  +'<div class="alfoot"><button type="button" class="altest" id="al_test" onclick="alertTest(this)">Send a test message</button>'
+   +'<span class="alnote" id="al_msg">Your choices are saved with <b>Save</b>. Scheduled delivery is being rolled out — the test message works today.</span></div>'
+  +'</div>'
+}
+function alertToggle(b){const on=!b.classList.contains('on');b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false')}
+function alertRead(){
+ if(!document.getElementById('al_pos'))return null
+ const o={};for(const [k] of ALERT_KINDS)o[k]=document.getElementById('al_'+k).classList.contains('on')
+ o.tick_min=+document.getElementById('al_tick_min').value;o.gap_usd=+document.getElementById('al_gap_usd').value
+ return o
+}
+// A próba ELŐTT ment: a próbaüzenet azt sorolja fel, ami be van kapcsolva, és
+// félrevezető lenne, ha a még el nem mentett állapotot hagyná ki.
+async function alertTest(btn){
+ const msg=document.getElementById('al_msg'),al=alertRead()
+ btn.disabled=true;msg.className='alnote';msg.textContent='Sending…'
+ try{
+  if(al)await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alerts:al})})
+  const r=await (await fetch('/api/alerts/test',{method:'POST'})).json()
+  if(r.ok){msg.className='alnote g';msg.textContent='Sent — check Telegram.'}
+  else{msg.className='alnote r';msg.textContent='Could not send: '+(r.error||'unknown error')}
+ }catch(e){msg.className='alnote r';msg.textContent='Could not reach the server.'}
+ btn.disabled=false
+}
 async function saveSettings(){
  const b={capital_v:+document.getElementById("cv").value,capital_m:+document.getElementById("cm").value,margin_per_leg:+document.getElementById("ml").value,leverage:+document.getElementById("lv").value,mode:document.getElementById("md").value,same_asset:document.getElementById("sa").value,same_va:document.getElementById("sva").value,same_vb:document.getElementById("svb").value}
  b.wallet=(document.getElementById("wal")?document.getElementById("wal").value:"").trim()
+ const al=alertRead();if(al)b.alerts=al
  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});load(true)}
 
 // ── fő betöltés (dashboard payload) ──
@@ -1551,6 +1697,7 @@ async function load(force){
      +fs("sa","Same-asset symbol",assetOpts(st.same_va||"Variational",st.same_vb||"Ethereal",d.same?d.same.asset:(st.same_asset||"ENA"))))
    +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"),' onchange="refreshAssetSel()"')+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal"),' onchange="refreshAssetSel()"'))
    +grp('Wallet','<div class="field" style="flex:1;min-width:240px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>')
+   +alertBlock(st.alerts||{})
    +'<button class="accent" onclick="saveSettings()">Save</button>'
   // Az összefoglaló: ugyanaz négy számban, amit az űrlap nyolc mezőben mond.
   // Becsukva ez marad látható, nyitva pedig fölösleges görgetés nélkül ellenőrizhető.
@@ -1742,6 +1889,140 @@ const venueLive=(disp)=>{const v=VLIVE[VKEY(disp)];return !v||v.live!==false}
 function vchip(k){
  return (VLOGO[k]?'<img class="vlogo" src="'+VLOGO[k]+'" alt="">':'')+'<span>'+vNev(k)+'</span>'
 }
+// ── GAP WATCH ───────────────────────────────────────────────────────────────
+// Az összes kereszt párja EGY listában, a rés-visszatérésre való alkalmasság
+// szerint rangsorolva — nem spread szerint. A küszöbök valós körökből jöttek,
+// nem elméletből (lásd a tábla alatti súgót). A szülő projekt Rés-figyelője.
+const GW_SRC=['comp','astervari','edgexvari','rhlvari','phxvari','nadovari']
+const GW_MIN_H=12
+let gwGrade={A:true,B:true,C:false,X:false}
+function toggleGwGrade(k){
+ gwGrade[k]=!gwGrade[k]
+ document.getElementById('gk-'+k).classList.toggle('on',gwGrade[k])
+ renderGapWatch()
+}
+// Gyorsgomb a trade oldalra. Csak azokra a tőzsdékre van sablon, amiket megmértünk —
+// a többinél a gomb inkább ne jelenjen meg, mint hogy rossz URL-re vigyen.
+const LIGHTER_SYM_OVERRIDE={SPY:'SPY_USDC'}
+const TRADE_URL={
+ Vari:(sym)=>'https://omni.variational.io/perpetual/'+sym,
+ Lighter:(sym)=>'https://app.lighter.xyz/trade/'+(LIGHTER_SYM_OVERRIDE[sym]||sym),
+ Aster:(sym)=>'https://www.asterdex.com/en/trade/pro/futures/'+sym+'USDT',
+}
+// Külön link lábanként: egy kattintásra a böngésző csak EGY új fület enged simán.
+// Valódi <a>, nem window.open — telefonon is megnyílik, és a sorra kattintás
+// (mélyfúrás) nem sül el vele együtt.
+const gwOpen=(sym,venue,side)=>TRADE_URL[venue]
+ ?'<a class="linkbtn" target="_blank" rel="noopener" href="'+TRADE_URL[venue](encodeURIComponent(sym))+'" title="Open the '+(side==='S'?'short':'long')+' leg on '+vNev(venue)+'" onclick="event.stopPropagation()">'+side+' ↗</a>':''
+const gwVol=(r)=>{const o=r.lVol??r.oVol??r.nVol??r.pOi;return Math.min(r.vVol==null?Infinity:r.vVol,o==null?Infinity:o)}
+const gwShare=(r,leg)=>{const mv=gwVol(r);return isFinite(mv)&&mv>0?leg/mv:null}
+const gwCost=(r)=>r.costTk!=null?r.costTk:r.costRT
+// A MEGFOGHATÓ rés, nem a teljes: a rés nem nulláig tér vissza, hanem a saját
+// mediánjáig. Ha a mediánt nem vonjuk le, minden pár jobbnak tűnik, mint amilyen.
+const gwCatch=(r,leg)=>r.gap==null?null:Math.abs(leg*(r.gap-((r.gapH&&r.gapH.med!=null)?r.gapH.med:0)))
+// A pontszám öt mért összetevőből áll. Mindegyik egy konkrét bukást kódol.
+function gwParts(r,leg){
+ const P=[],h=r.gapH
+ const fog=gwCatch(r,leg),ktg=leg*gwCost(r)
+ // 1. Rés / költség — ha a megfogható rés nem nagyobb a belépés áránál, a kör
+ //    nyerhetetlen, akármilyen jó a többi szám. Ez a legnagyobb súly.
+ const ar=(fog!=null&&ktg>0)?fog/ktg:null
+ P.push(['Gap / cost',ar==null?0:ar>=4?35:ar>=3?30:ar>=2?20:ar>=1.5?8:0,35,
+  ar==null?'no price on both legs':ar.toFixed(1)+'× ($'+fog.toFixed(2)+' capturable / $'+ktg.toFixed(2)+' cost)'])
+ // 2. Kifeszítettség — a 2..8σ a hasznos sáv. 15σ fölött már nem félreárazás, hanem elszakadás.
+ const az=h&&h.z!=null?Math.abs(h.z):null
+ let zp=0,zn='not enough measurements'
+ if(az!=null){
+  if(az>=15){zp=3;zn=az.toFixed(1)+'σ — suspiciously large, more likely a break than a mispricing'}
+  else if(az>=2&&az<=8){zp=25;zn=az.toFixed(1)+'σ — in the useful band'}
+  else if(az>8){zp=12;zn=az.toFixed(1)+'σ — extreme, careful'}
+  else if(az>=1){zp=8;zn=az.toFixed(1)+'σ — moderate'}
+  else{zp=0;zn=az.toFixed(1)+'σ — mid-band, no edge'}
+ }
+ P.push(['Stretch',zp,25,zn])
+ // 3. Likviditás — ha a lábad a napi forgalom ötöde, te vagy a könyv.
+ const share=gwShare(r,leg)
+ P.push(['Liquidity',share==null?0:share<0.01?20:share<0.03?15:share<0.10?7:0,20,
+  share==null?'no volume data':(share*100).toFixed(1)+'% of the thinner leg’s daily volume'])
+ // 4. Egyirány — a funding a drágább lábat shortoltatja, tehát a szűkülő rés is fizet.
+ P.push(['Alignment',r.aligned===true?12:r.aligned===false?0:4,12,
+  r.aligned===true?'gap and funding pull the same way':r.aligned===false?'the gap works AGAINST the funding':'no price on both legs'])
+ // 5. Carry — mennyi fizet, amíg a visszatérésre vársz.
+ const napi=leg*Math.abs(r.diff||0)/365
+ P.push(['Carry',napi>=3?8:napi>=1?5:napi>=0.3?2:0,8,'$'+napi.toFixed(2)+'/day funding while you wait'])
+ return P
+}
+const gwScore=(r,leg)=>Math.round(gwParts(r,leg).reduce((a,x)=>a+x[1],0))
+// A kizárás NEM pontszám-kérdés: ezek olyan hibák, amiket egy magas pontszám sem
+// írhat felül. Külön kezelve, hogy az "Excluded" szűrővel meg lehessen nézni, mi esett ki.
+function gwExcl(r,leg){
+ const h=r.gapH,okok=[]
+ const fog=gwCatch(r,leg),ktg=leg*gwCost(r)
+ if(!h||h.n<GW_MIN_H)okok.push('too few measurements ('+((h&&h.n)||0)+'h of '+GW_MIN_H+'h)')
+ if(fog!=null&&ktg>0&&fog/ktg<1.5)okok.push('the capturable gap does not cover the cost')
+ if(h&&h.z!=null&&Math.abs(h.z)<1.5)okok.push('the gap sits mid-band')
+ if(h&&h.drift!=null&&h.z!=null&&Math.abs(h.drift)>=1.5&&Math.sign(h.drift)===Math.sign(h.z))okok.push('drifting, not swinging')
+ const share=gwShare(r,leg)
+ if(share!=null&&share>=0.10)okok.push('thin book (leg is '+Math.round(share*100)+'% of volume)')
+ return okok
+}
+const GW_TITLE={A:'ready to enter',B:'conditional',C:'worth watching',X:'excluded'}
+function renderGapWatch(){
+ const box=document.getElementById('gwrows');if(!box||!scanData)return
+ const leg=+((document.getElementById('gwleg')||{}).value)||3000
+ // Egy pár több kereszten is szerepelhet (Vari+Lighter és Vari+Aster) — mind
+ // külön belépési lehetőség, ezért nem vonjuk össze őket.
+ let all=[]
+ for(const k of GW_SRC){const rows=scanData[k];if(!rows)continue;for(const r of rows){if(r.gap!=null)all.push(r)}}
+ all=all.map(r=>{const kiz=gwExcl(r,leg),pont=gwScore(r,leg);return {r,pont,kiz,oszt:kiz.length?'X':pont>=75?'A':pont>=55?'B':'C'}})
+ const db={A:0,B:0,C:0,X:0};for(const x of all)db[x.oszt]++
+ // Hány pár esett ki KIZÁRÓLAG azért, mert nincs elég ármérés — ez nem a pár
+ // hibája, hanem a mérésé, és magától megoldódik, ahogy gyűlik az adat.
+ const csakMeres=all.filter(x=>x.kiz.length===1&&(!x.r.gapH||x.r.gapH.n<GW_MIN_H)).length
+ const sum=document.getElementById('gw_sum')
+ if(sum)sum.innerHTML='<b>'+all.length+'</b> pairs with a price on both legs · <b class="g">'+db.A+'</b> A · <b class="y">'+db.B+'</b> B · <b>'+db.C+'</b> C · <b>'+db.X+'</b> excluded'
+  +(csakMeres?' — '+csakMeres+' of those only because the price history is still shorter than '+GW_MIN_H+' hours':'')
+ const lista=all.filter(x=>gwGrade[x.oszt]).sort((a,b)=>b.pont-a.pont)
+ const cnt=document.getElementById('gw_cnt');if(cnt)cnt.textContent=lista.length+' pairs'
+ box.innerHTML=lista.slice(0,60).map(({r,pont,oszt,kiz})=>{
+  const parts=gwParts(r,leg)
+  const tip=parts.map(x=>x[0]+': '+x[1]+'/'+x[2]+' — '+x[3]).join(String.fromCharCode(10))
+  const h=r.gapH,med=(h&&h.med!=null)?h.med:null
+  const resUsd=Math.abs(leg*r.gap),ktg=leg*gwCost(r),fog=gwCatch(r,leg)
+  const ar=ktg>0?fog/ktg:null
+  const share=gwShare(r,leg),napi=leg*Math.abs(r.diff||0)/365
+  const oCls=oszt==='A'?'g':oszt==='B'?'y':oszt==='C'?'d':'r'
+  // A "Why" oszlop: kizártaknál az ok, egyébként az erősségek — ÉS a fenntartások.
+  // Egy pár magas pontot kaphat úgy is, hogy közben nulla carry támogatja a
+  // várakozást; ezt a puszta pontszám elrejtené.
+  const fenn=[]
+  if(napi<0.3)fenn.push('no carry while you wait')
+  if(h&&h.z!=null&&Math.abs(h.z)>=15)fenn.push('suspiciously large swing — may be a break')
+  if(r.avg7d!=null&&r.diff!=null&&Math.sign(r.avg7d)!==Math.sign(r.diff))fenn.push('the 7-day funding average points the other way')
+  const eros=parts.filter(x=>x[1]>=x[2]*0.7).map(x=>x[0])
+  const miert=kiz.length?kiz.join(' · '):(eros.join(' · ')||'—')+(fenn.length?' <span class="y">⚠ '+fenn.join(' · ')+'</span>':'')
+  const oVol=r.lVol??r.oVol??r.nVol??r.pOi
+  return '<tr style="cursor:pointer" onclick="diveInto(\''+r.sym+'\')">'
+   +'<td><span class="age-badge '+(oszt==='A'?'ag-struct':oszt==='B'?'ag-young':oszt==='X'?'ag-spike':'')+'" title="'+GW_TITLE[oszt]+'">'+oszt+'</span></td>'
+   +'<td class="mono big '+oCls+'" title="'+tip.replace(/"/g,'&quot;')+'">'+pont+'</td>'
+   +'<td class="big" style="text-align:left">'+r.sym+(r.thin?'<span class="thin">⚠</span>':'')+'</td>'
+   +'<td>'+catBadge(r.cat)+'</td>'
+   +'<td style="text-align:left;white-space:nowrap"><span class="pillS">S</span> '+vNev(r.pair.short)+' <span class="d">→</span> <span class="pillL">L</span> '+vNev(r.pair.long)+'</td>'
+   +'<td style="white-space:nowrap">'+gwOpen(r.sym,r.pair.short,'S')+' '+gwOpen(r.sym,r.pair.long,'L')+'</td>'
+   +'<td class="mono">'+((r.gap>0?'+':'−')+(Math.abs(r.gap)*100).toFixed(2))+'%<br><span class="d" style="font-size:10px">$'+resUsd.toFixed(2)+'</span></td>'
+   +'<td class="mono d" title="The pair’s own median — the gap returns here, not to zero. Below it, the CAPTURABLE part: the distance between the current gap and the median, at your leg size.">'
+    +(med==null?'—':((med>0?'+':'−')+(Math.abs(med)*100).toFixed(2))+'%<br><span class="g" style="font-size:10px">$'+fog.toFixed(2)+'</span>')+'</td>'
+   +'<td class="mono '+(ar==null?'d':ar>=3?'g':ar>=2?'y':'r')+'" title="The capturable gap divided by the open + close cost at taker fees. Below 2× it is not worth it.">'+(ar==null?'—':ar.toFixed(1)+'×')+'</td>'
+   +'<td class="mono '+(h&&h.z!=null?(Math.abs(h.z)>=15?'r':Math.abs(h.z)>=2?'g':'d'):'d')+'">'+(h&&h.z!=null?h.z.toFixed(1)+'σ':'—')+'</td>'
+   +alignCell(r)
+   +'<td class="mono d" style="white-space:nowrap">'+scU(r.vVol)+' / '+scU(oVol)+'</td>'
+   +'<td class="mono '+(share==null?'d':share>0.10?'r':share>0.03?'y':'g')+'">'+(share==null?'—':(share*100).toFixed(1)+'%')+'</td>'
+   +'<td class="mono '+(napi>=1?'g':'d')+'">$'+napi.toFixed(2)+'</td>'
+   +'<td>'+scAge(r)+'</td>'
+   +'<td class="gwwhy '+(kiz.length?'r':'d')+'">'+miert+'</td>'
+   +'</tr>'
+ }).join('')||'<tr><td colspan="16" class="d" style="text-align:center;padding:22px;white-space:normal">No pair in the selected grades right now — switch on <b>C</b> or <b>Excluded</b> to see what is there and why it did not qualify.</td></tr>'
+}
 function renderStrat(){
  const box=document.getElementById('srows');if(!box||!scanData)return
  const leg=+((document.getElementById('stleg')||{}).value)||3000
@@ -1843,13 +2124,14 @@ let curScanTab='multi'
 let curPage='dash'
 function showPage(p){
   curPage=p
-  for(const x of ['dash','pairs','strat','track','hist']){
+  for(const x of ['dash','pairs','strat','gap','track','hist']){
     document.getElementById('pg-'+x).style.display=(x===p)?'block':'none'
     document.getElementById('nav-'+x).classList.toggle('on',x===p)
   }
   window.scrollTo(0,0)
   if(p==='hist'){renderNaploGate();loadNaplo()}
   if(p==='strat')renderStrat()
+  if(p==='gap')renderGapWatch()
   if(p==='pairs')renderPairs()
   if(p==='dash')renderDash()
   if(p==='track')pollGap()   // ne kelljen három másodpercet várni az első értékre
@@ -2167,7 +2449,7 @@ async function loadScan(){
   const d=await fetch('/api/scan').then(r=>r.json())
   scanData=d
   document.getElementById('scancard').style.display=""
-  renderDash();renderMulti();renderStrat();renderPairs()
+  renderDash();renderMulti();renderStrat();renderPairs();renderGapWatch()
   // A Beállítások a /api/data-ból renderelődik, ami HAMARABB megjön, mint a
   // /api/scan — ezért az eszközlista első renderkor még üres. Itt töltjük fel.
   refreshAssetSel()
