@@ -891,6 +891,17 @@ async function scan() {
       maxLev: (() => { const a = VENUES[chosen.short][s]?.maxLev, b = VENUES[chosen.long][s]?.maxLev
         const xs = [a, b].filter((x) => x != null); return xs.length ? Math.min(...xs) : null })(),
       aprs: { Vari: alive(vari[s]) ? vari[s].apr : null, Ethereal: alive(eth[s]) ? eth[s].apr : null, Nado: alive(nado[s]) ? nado[s].apr : null, Lighter: alive(li.lighter[s]) ? li.lighter[s].apr : null, Aster: alive(ast[s]) ? ast[s].apr : null, EdgeX: alive(edx[s]) ? edx[s].apr : null, RhLighter: alive(rhl[s]) ? rhl[s].apr : null },
+      // Ugyanaz a het venue, de az ARAIK. A `gap`/`aligned` fent csak a KIVALASZTOTT
+      // parra szol; a dashboard kereszt-rangsora viszont minden venue-part felsorol
+      // (nem csak a Vari-kereszteket), es egy nem-Vari paron se a rest, se az
+      // egyiranyusagot nem lehetne kiszamolni enelkul.
+      // Melyik lab eleg likvid ehhez az eszkozhoz, venue-nkent. A `thin` fent csak a
+      // KIVALASZTOTT parra szol — a dashboard viszont minden venue-part rangsorol,
+      // es ott ugyanazt a $10k-s kuszobot kell tudni alkalmazni. Maszk, a HEATV
+      // sorrendjeben (Vari, Ethereal, Nado, Lighter, Aster, EdgeX, RhLighter):
+      // '1' = likvid vagy nem publikal volument, '0' = vekony konyv.
+      liq: ['Vari', 'Ethereal', 'Nado', 'Lighter', 'Aster', 'EdgeX', 'RhLighter'].map((k) => (VENUES[k][s] && healthyLeg(k) ? '1' : '0')).join(''),
+      pxs: { Vari: alive(vari[s]) ? vari[s].price ?? null : null, Ethereal: alive(eth[s]) ? eth[s].price ?? null : null, Nado: alive(nado[s]) ? nado[s].price ?? null : null, Lighter: alive(li.lighter[s]) ? li.lighter[s].price ?? null : null, Aster: alive(ast[s]) ? ast[s].price ?? null : null, EdgeX: alive(edx[s]) ? edx[s].price ?? null : null, RhLighter: alive(rhl[s]) ? rhl[s].price ?? null : null },
       hl: li.hyperliquid[s]?.apr ?? null,
       costRT, beDays: Math.abs(chosen.diff) > 0 ? (costRT * 365) / Math.abs(chosen.diff) : null,
       avg7d: h.avg7d, ageH: h.ageH, ageCapped: h.capped,
@@ -1717,6 +1728,53 @@ async function handleReq(req, res) {
     // nyitott pozíció eszközére, tehát olcsónak kell lennie. A /api/dive ehhez képest
     // Hyperliquidet, Lighter-könyvet és Phoenixet is kérdez.
     // A mérési történet nyersen, hogy bárki letölthesse és maga is elemezhesse.
+    // A dashboard negy KPI-kartyajanak a gorbeje, plusz a BTC/ETH 24h valtozasa.
+    // Szerveroldalon szamolva szandekosan: a nyers meresi tortenet orankent ~46 kB,
+    // es a kliensnek ebbol osszesen negy rovid szamsor kell. Igy egy keres ~2 kB.
+    else if (url === '/api/kpihist') {
+      // Ugyanaz a het venue, mint a szkenner tablaban (a Phoenix ott sincs benne),
+      // kulonben a gorbe vege nem arra a szamra futna ki, ami a kartyan all.
+      const VK = ['v', 'e', 'n', 'l', 'a', 'g', 'r']
+      const pont = (snap) => {
+        const spreads = []
+        for (const x of Object.values(snap.d || {})) {
+          const xs = VK.map((k) => x[k]).filter((n) => n != null)
+          if (xs.length < 2) continue
+          spreads.push(Math.max(...xs) - Math.min(...xs))
+        }
+        spreads.sort((a, b) => b - a)
+        const o = spreads.filter((s) => s >= 0.10)
+        return {
+          ts: snap.ts,
+          top: spreads.length ? spreads[0] : null,
+          opps: o.length,
+          avg: o.length ? o.reduce((a, b) => a + b, 0) / o.length : null,
+          // EGY dollarnyi labra. A gorbe min/max-ra normalizalva rajzolodik, tehat
+          // a lab merete az ALAKJAT nem valtoztatja — igy a lab atallitasa nem jar
+          // ujabb lekeressel, es a valasz fuggetlen a kerestol.
+          usd: spreads.slice(0, 5).reduce((a, b) => a + b / 365, 0),
+        }
+      }
+      // Az utolso 48 ora eleg a kartya-gorbenek, es fix meretu valaszt ad.
+      const pts = labHist.slice(-48).map(pont)
+      // 24h valtozas a sajat armeresunkbol — nincs hozza kulso hivas. A `pv` a
+      // Variational ara; ha a 24 oraval ezelotti meres hianyzik, egyszeruen nincs szam.
+      // A LEGUJABB meres, ami mar legalabb 20 oras. A `>= most-25h` ezt elrontotta:
+      // ha csak egyetlen friss pillanatkep van, az onmagaval lett osszehasonlitva,
+      // es a topbar +0.00%-ot irt ki ott, ahol valojaban nincs meresunk.
+      const regi = [...labHist].reverse().find((r) => r.ts <= Date.now() - 20 * 3600e3)
+      const most = labHist[labHist.length - 1]
+      // Harom feltetel, kulonben nincs szam. (1) Legyen ket KULON meres — egyetlen
+      // pillanatkep onmagaval osszehasonlitva +0.00%-ot ir ki oda, ahol valojaban
+      // nincs meresunk. (2) A friss oldal legyen tenyleg friss. (3) Legyen mindketton ar.
+      const ervenyes = regi && most && regi !== most && most.ts >= Date.now() - 3 * 3600e3
+      const chg = (sym) => {
+        if (!ervenyes) return null
+        const a = regi.d[sym] && regi.d[sym].pv, b = most.d[sym] && most.d[sym].pv
+        return a && b ? b / a - 1 : null
+      }
+      json({ pts, btc_chg: chg('BTC'), eth_chg: chg('ETH'), hours: labHist.length })
+    }
     else if (url === '/api/archive') {
       const napok = [...new Set(labHist.map((r) => new Date(r.ts).toISOString().slice(0, 10)))].sort()
       json({ days: napok, snapshots: labHist.length })

@@ -725,17 +725,147 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
 .ehold td:first-child{text-align:left;color:var(--dim);font-weight:600;font-family:'Inter',system-ui,sans-serif}
 .ehold td.b{font-weight:800;font-size:14px;color:var(--tx)}
 .winnote{font-size:11.5px;color:var(--yellow);background:var(--ybg);border:1px solid #f59e0b33;border-radius:var(--r-sm);padding:8px 11px;margin-top:10px}
+/* ══ DASHBOARD v2 ══════════════════════════════════════════════════════════
+   A szkenner nyitóképe. A rend itt fontosabb, mint a panelek száma: egy cím,
+   négy szám, két tábla — és MINDEN vezérlő egyetlen sávba húzva a lap aljára,
+   hogy a lap teteje adat legyen, ne kapcsolósor. A régebbi szabályokat ez a
+   blokk szándékosan felülírja (azonos fajsúly, de később jön). */
+.dhead{display:flex;align-items:flex-start;gap:22px;flex-wrap:wrap;margin:2px 0 18px}
+.dhead .dh-l{min-width:0;flex:1 1 440px}
+.dhead h1{margin:0;font-size:33px;font-weight:800;letter-spacing:-1.2px;line-height:1.08;
+ display:flex;align-items:center;gap:11px;flex-wrap:wrap;color:var(--tx)}
+.dhead h1 .nm{white-space:nowrap}
+.dhead h1 b{color:var(--blue);font-weight:800}
+.dhead .sub{margin:10px 0 0;font-size:13px;color:var(--dim);line-height:1.6;max-width:76ch}
+.dhead .back{display:inline-block;color:var(--blue);text-decoration:none;font-size:12px;font-weight:600;margin-bottom:9px}
+.dhead .back:hover{text-decoration:underline}
+.dsels{display:flex;gap:8px;flex-wrap:wrap;padding-top:5px}
+.dsel{position:relative}
+.dsel select{appearance:none;-webkit-appearance:none;background:var(--card);border:1px solid var(--line);
+ color:var(--tx);border-radius:var(--r-sm);font:600 12px/1 'Inter',system-ui,sans-serif;
+ padding:10px 30px 10px 12px;cursor:pointer;transition:border-color .13s}
+.dsel select:hover{border-color:var(--line2)}
+.dsel::after{content:'▾';position:absolute;right:11px;top:50%;transform:translateY(-50%);
+ pointer-events:none;color:var(--faint);font-size:10px}
+.dsel .ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;
+ color:var(--faint);font-size:11px;line-height:1}
+.dsel.ico select{padding-left:30px}
+
+/* ── KPI-kártya: szám balra, a saját görbéje jobbra ─────────────────────────
+   A sparkline az utolsó 48 óra MÉRT értéke ugyanarra a mutatóra — nem díszítés:
+   egy 458%-os top spread mást jelent, ha hetek óta ott áll, és mást, ha az
+   elmúlt órában ugrott oda. */
+.kpi{position:relative;cursor:pointer;transition:border-color .13s,background .13s}
+.kpi:hover{border-color:var(--line2);background:var(--card2)}
+.kpi.lead{border-color:#a78bfa4d;background:linear-gradient(180deg,#a78bfa0d,transparent 62%),var(--card)}
+.kpi.lead:hover{background:linear-gradient(180deg,#a78bfa14,transparent 62%),var(--card2)}
+.kpi .chev{position:absolute;right:14px;top:12px;color:var(--faint);font-size:14px;line-height:1;transition:color .13s}
+.kpi:hover .chev{color:var(--blue)}
+.kpi .krow{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:8px}
+/* A szam kapja a helyet, a gorbe engedi — egy −7951%-os spread kiirva hosszabb,
+   mint a kartya fele, es ott a SZAM a tartalom. */
+.kpi .kval{font-size:27px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi .spark{flex:0 0 88px;width:88px;height:32px;display:block;opacity:.9}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(248px,1fr))}
+.kpi .spark .ln{fill:none;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+.kpi .spark .ar{stroke:none;opacity:.15}
+.kpi .sub{margin-top:5px}
+
+/* ── panel-fejléc: a jobb szélén a saját vezérlője ── */
+/* A kereszt-rangsor ket oszloppal tobb lett (rang, csillag) es logokat is visz —
+   kapjon tobb helyet, kulonben a $ / nap oszlop kiszorul a panelbol. */
+.dgrid{grid-template-columns:minmax(0,1.42fr) minmax(0,1fr)}
+/* 1400 alatt a ket tabla egyuttes szelessege nem fer ki egymas mellett, es a
+   hotekrep jobb szele levagodik. Egymas ala teve mindketto teljes szelessegu —
+   jobb, mint ket levagott panel. 1180 volt a korabbi hatar, de az a regi,
+   keskenyebb kereszt-tablara volt szabva (rang, csillag es logok nelkul). */
+@media(max-width:1400px){.dgrid{grid-template-columns:1fr}}
+.sechead .hsel{margin-left:auto;padding-top:0}
+.sechead .hsel select{padding:7px 27px 7px 11px;font-size:11.5px}
+.sechead .hsel::after{right:10px}
+
+/* ── kereszt-rangsor: rang, csillag, logó ───────────────────────────────────
+   A ★ az első négyre kerül, és NEM dísz: ezen a négy kereszten van egyszerre
+   10-nél több lehetőség és $5 fölötti napi hozam a beállított lábon. */
+.topv tr{cursor:pointer}
+.topv td.rk{width:22px;text-align:right;color:var(--faint);
+ font-family:"Cascadia Mono",Consolas,monospace;font-size:11px;padding-right:2px}
+.topv td.st{width:20px;text-align:center;color:var(--gold);font-size:12.5px;line-height:1}
+.topv .xw{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:12.5px}
+.topv .xw .vlogo{width:17px;height:17px;border-radius:50%}
+.topv .xw .vinit{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
+ border-radius:50%;background:var(--elev);color:var(--dim);font:800 8px/1 'Inter',system-ui,sans-serif}
+.topv td,.topv th{padding-left:5px;padding-right:5px}
+/* A hőtérkép hét oszlopa a keskenyebb panelben is férjen ki vízszintes görgetés nélkül. */
+.heat td{padding:8px 3px;font-size:10px}
+.heat th{font-size:8.5px;letter-spacing:.4px}
+.heat th .vhw{gap:4px}
+.topv .ar{color:var(--faint);font-weight:400;margin:0 1px}
+
+/* ── hőtérkép: a fejlécben is logó, hogy a hat oszlop ne hat szöveg legyen ── */
+.heat th .vhw{justify-content:center;gap:5px}
+.heat th.rw .vhw{justify-content:flex-end}
+.heat th .vlogo{width:15px;height:15px;border-radius:50%}
+.heat th .vinit{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
+ border-radius:50%;background:var(--elev);color:var(--dim);font:800 8px/1 'Inter',system-ui,sans-serif}
+
+/* ── oldalsáv: ikonok és az API-állapot ─────────────────────────────────────
+   Az állapot-pontok a szerver `venues` mezőjéből jönnek (hány terméke van az
+   adott tőzsdének nem nulla volumennel) — tehát MÉRT érték, nem ping. Az
+   Ethereal 2026-08-26-án mind a 18 termékét 0 volumenre tette: pont ezt mutatja. */
+.snavi .si{display:inline-flex;align-items:center;justify-content:center}
+.snavi .si svg{width:17px;height:17px;display:block}
+.sblk{padding:11px 16px;border-top:1px solid var(--line)}
+.sblk .lbl{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+ color:var(--faint);margin-bottom:7px}
+.sblk .row{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);padding:2px 0}
+.sblk .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--green);flex:0 0 auto;box-shadow:0 0 0 2.5px #4ade8022}
+.sdot.off{background:var(--red);box-shadow:0 0 0 2.5px #f8717122}
+.sdot.unk{background:var(--faint);box-shadow:none}
+@media(max-width:980px){.sblk{display:none}}
+
+/* ── topbar: érmejel és 24h változás ── */
+.tick .cg{width:15px;height:15px;border-radius:50%;display:inline-flex;align-items:center;
+ justify-content:center;font-size:9px;font-weight:800;flex:0 0 auto;letter-spacing:0}
+.tick .cg.btc{background:#f7931a;color:#140c00}
+.tick .cg.eth{background:#6b7280;color:#f1f5f9}
+.tick .chg{font-family:"Cascadia Mono",Consolas,monospace;font-size:11px;font-weight:700}
+.tick .chg.g{color:var(--green)}.tick .chg.r{color:var(--red)}
+
+/* ── a lap alja: minden szkenner-vezérlő egy sávban ── */
+.setbar{display:flex;align-items:center;gap:13px;flex-wrap:wrap;background:var(--card);
+ border:1px solid var(--line);border-radius:var(--r);padding:11px 15px;margin-bottom:14px}
+.setbar .lbl{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+ color:var(--faint);white-space:nowrap}
+.setbar .sep{width:1px;height:22px;background:var(--line);flex:0 0 auto}
+.setbar .grp{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.setbar .grp>.lbl{margin-right:1px}
+.setbar input[type=number]{width:72px;padding:6px 8px}
+/* A sav egyetlen sor akar lenni 1600-on: hét pirula, egy mező és a DATA blokk
+   épp csak kifér, ha a pirulák nem viszik a teljes 15px-es oldalpaddingot. */
+.setbar .filt{padding:5px 11px;font-size:11px}
+.setbar .grp{gap:5px}
+.setbar .right{margin-left:auto;text-align:right;font-size:11px;color:var(--faint);line-height:1.55;white-space:nowrap}
+.setbar .right b{color:var(--dim);font-weight:600}
+.cdown{font-family:"Cascadia Mono",Consolas,monospace;font-size:11.5px;color:var(--dim);white-space:nowrap}
+@media(max-width:760px){.setbar .right{margin-left:0;text-align:left;white-space:normal}}
+
 </style></head><body>
 <div class="side">
   <div class="sbrand"><span class="live"></span>HEDGE<b>LAB</b></div>
   <nav class="snav">
-    <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si">▦</span>Dashboard</button>
-    <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si">⇄</span>Pairs Scanner</button>
-    <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si">★</span>Best Pairs</button>
-    <button class="snavi"    id="nav-gap"   onclick="showPage('gap')"><span class="si">◆</span>Gap Watch</button>
-    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si">◎</span>Position</button>
-    <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si">◷</span>History</button>
+    <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 15v2"/><path d="M12 9v8"/><path d="M17 5v12"/></svg></span>Dashboard</button>
+    <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4-4"/></svg></span>Pairs Scanner</button>
+    <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span>Best Pairs</button>
+    <button class="snavi"    id="nav-gap"   onclick="showPage('gap')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.5a6 6 0 1 0-12 0c0 6.5-2.5 8-2.5 8h17S18 15 18 8.5"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/></svg></span>Gap Watch</button>
+    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg></span>Position</button>
+    <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/></svg></span>History</button>
   </nav>
+  <!-- A frissulesi utem es a tozsdek allapota. Mindketto MERT ertek: a cadence az
+       eppen beallitott szamlalobol, a pontok a szerver `venues` mezojebol. -->
+  <div class="sblk"><div class="row"><span class="sdot" id="sd_live"></span><span class="nm">Data: <b id="sd_mode" style="color:var(--tx);font-weight:600">Live (90s)</b></span></div></div>
+  <div class="sblk"><div class="lbl">API Status</div><div id="sdstat"></div></div>
   <div class="sfoot"><a href="/">&larr; Overview</a></div>
 </div>
 <div class="mainpane">
@@ -753,61 +883,100 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
   <div class="tbright">
     <div id="authbox" class="authbox"></div>
     <div class="ts" id="ts">loading…</div>
-    <button class="refresh" onclick="load(true)">↻</button>
+    <button class="refresh" id="gearbtn" onclick="openSettings()" title="Configuration — capital, leverage, venues, alerts"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 8.9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 8.9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h.1a1.6 1.6 0 0 0 1-1.4V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.4 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1"/></svg></button>
   </div>
 </div>
 <div class="wrap">
 
 <!-- ══ DASHBOARD · a szkenner ══ -->
 <section id="pg-dash">
-<div class="intro compact">
-  <a class="back" href="/">&larr; Overview</a>
-  <div class="loadgate" id="loadgate">
+<!-- A fejlec: cim, egy mondat, es a harom hatokor-valaszto. A korabbi bevezeto
+     bekezdes ugyanezt mondta el harom bekezdesben; ami belole tenyleg kellett (mit
+     tarol, mi a forras), az a lap aljan allo DATA blokkba kerult. -->
+<div class="dhead">
+  <div class="dh-l">
+    <a class="back" href="/">&larr; Overview</a>
+    <h1><span class="nm">DELTA<b>NEUTRAL</b></span> <span class="demotag">DEMO</span></h1>
+    <p class="sub">Live scanner across seven perpetual DEXes. Find and compare funding spreads,
+    identify tradeable pairs, and monitor your positions.</p>
+  </div>
+  <div class="dsels">
+    <div class="dsel"><select id="d_cat" onchange="setDashCat(this.value)" title="Which asset class the four numbers and both panels are measured over">
+      <option value="all">All assets</option><option value="major">Majors</option><option value="alt">Alts</option><option value="RWA">RWA</option>
+    </select></div>
+    <div class="dsel"><select id="d_ven" onchange="setDashVen(this.value)" title="Keep only the crosses that involve this venue">
+      <option value="all">All venues</option>
+    </select></div>
+    <div class="dsel ico"><span class="ic">↻</span><select id="d_rate" onchange="setRefresh(this.value)" title="How often the scan is re-fetched">
+      <option value="90">Last 90s</option><option value="300">Last 5 min</option><option value="0">Paused</option>
+    </select></div>
+  </div>
+</div>
+<!-- Csak az ebresztes idejere. Ami eddig alatta allt (mit tarol, mi a forras), az a
+     lap aljan, a DATA blokkban van — ott keresi az ember, es nem foglal helyet a
+     nyitokepen. A gate elrejtesevel az egesz doboz eltunik. -->
+<div class="intro compact" id="introbox">
+  <div class="loadgate" id="loadgate" style="border-bottom:0;margin-bottom:0;padding-bottom:0">
     <div class="spin"></div>
     <p><b>Waking up.</b> This runs on free serverless hosting, not a dedicated server &mdash;
     the first request has to fetch live rates from all <b>seven</b> exchanges before the table
     below has anything to show. A few seconds, not a miracle. Hang on.</p>
   </div>
-  <p>Live scanner across <b>Variational, Ethereal, Nado, Lighter, Lighter&nbsp;on&nbsp;Robinhood&nbsp;Chain,
-  Aster</b> and <b>edgeX</b>. Panels below are <b>fully interactive</b> &mdash; once you sign in,
-  your settings, open round and journal are saved to your account. Nothing here can place a trade; no capital at risk.</p>
-  <p class="src">Live market data, 90 s refresh &middot; seeded with 99 hourly snapshots since 16 Aug 2026
-  &middot; raw measurements at <code>/api/archive</code></p>
 </div>
 <!-- ══ ÁTTEKINTŐ · a nap állása egy képernyőn ══ -->
 <div id="dashover" style="display:none">
   <div class="kpis" id="dkpis"></div>
   <div class="dgrid">
     <div class="card">
-      <div class="sechead"><h3>Top venue pairs</h3><span class="sh">what each cross is worth right now</span></div>
+      <div class="sechead"><h3>Top venue pairs</h3><span class="sh">what each cross is worth right now</span>
+        <div class="dsel hsel"><select id="tv_sort" onchange="setTvSort(this.value)" title="What the ranking is measured by">
+          <option value="usd">$ / day (top)</option><option value="spread">Top spread</option>
+          <option value="opps">Opportunities</option><option value="aligned">Aligned</option>
+        </select></div></div>
       <div class="tscroll"><table class="topv"><thead><tr>
-        <th>Cross</th><th>Opportunities</th><th>Top spread</th><th>$ / day · top</th><th>Aligned</th>
+        <th class="rk">#</th><th class="st"></th><th>Cross</th><th>Opportunities</th><th>Top spread</th><th>$ / day · top</th><th>Aligned</th>
       </tr></thead><tbody id="topvrows"></tbody></table></div>
       <div class="hint">Click a row to open that cross in the <b>Pairs Scanner</b>. <b>Aligned</b> counts the opportunities where the price gap pulls the same way as the funding — those are the ones where a narrowing gap pays you on top of the carry.</div>
     </div>
     <div class="card">
-      <div class="sechead"><h3>Heatmap · best spread</h3><span class="sh">short the row, long the column</span></div>
+      <div class="sechead"><h3>Heatmap · best spread</h3><span class="sh">short the row, long the column</span>
+        <div class="dsel hsel"><select id="ht_unit" onchange="setHeatUnit(this.value)" title="What the cells show">
+          <option value="pct">Spread (%)</option><option value="usd">$ / day</option>
+        </select></div></div>
       <div class="tscroll"><table class="heat" id="heat"></table></div>
       <div class="heatleg"><span>row pays less</span><span class="bar"></span><span>row pays more</span></div>
       <div class="hint">Each cell is the single largest funding difference that cross offers, seen from the row venue. The mirror cell is the same pair from the other side, hence the opposite sign. Hover for the asset; click a Variational cross to open it.</div>
     </div>
   </div>
 </div>
-<div class="card" id="scancard" style="display:none">
-  <div id="scantab-multi">
-    <h2>🌐 Multi-venue scanner
-    <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0">
-    Leg ($): <input id="sleg" type="number" value="3000" step="100" min="50" style="width:80px;padding:5px 9px" oninput="saveLeg(this);renderMulti();renderDash()">
-    &nbsp;<button class="filt" id="eg-m" onclick="toggleEgyirM()" title="Only pairs where funding has you short the MORE EXPENSIVE leg — a narrowing gap then pays you too.">✓ Aligned</button>
-    &nbsp;Filter:
+<!-- Minden szkenner-vezerlo EGY savban, a ket panel alatt. Korabban a matrix
+     fejlecebe volt beleszortva float:right-tal, ahol se nem latszott, se nem
+     fert el. A jobb szelen a DATA blokk: mibol dolgozik a lap. -->
+<div class="setbar" id="setbar" style="display:none">
+  <span class="lbl">Scanner settings</span>
+  <div class="sep"></div>
+  <div class="grp"><span class="lbl">Leg ($)</span>
+    <input id="sleg" type="number" value="3000" step="100" min="50" oninput="saveLeg(this);renderMulti();renderDash();renderStrat();renderGapWatch()"></div>
+  <div class="sep"></div>
+  <div class="grp"><span class="lbl">Filter</span>
     <button class="filt on" id="fm-all" onclick="setCatM('all')">All</button>
     <button class="filt" id="fm-RWA" onclick="setCatM('RWA')">RWA</button>
     <button class="filt" id="fm-alt" onclick="setCatM('alt')">Alt</button>
     <button class="filt" id="fm-major" onclick="setCatM('major')">Major</button>
-    &nbsp;Sort:
+    <button class="filt" id="eg-m" onclick="toggleEgyirM()" title="Only pairs where funding has you short the MORE EXPENSIVE leg — a narrowing gap then pays you too.">✓ Aligned</button></div>
+  <div class="sep"></div>
+  <div class="grp"><span class="lbl">Sort</span>
     <button class="filt on" id="ms-spread" onclick="setMSort('spread')">Spread</button>
-    <button class="filt" id="ms-tick" onclick="setMSort('tick')">Next tick in $</button>
-    <button class="refresh" onclick="loadScan()">⟳</button></span></h2>
+    <button class="filt" id="ms-tick" onclick="setMSort('tick')">Next tick $</button></div>
+  <div class="sep"></div>
+  <div class="grp"><span class="cdown" id="cdown">—</span>
+    <button class="refresh" onclick="loadScan()">⟳</button></div>
+  <div class="right"><span class="lbl" style="display:block;margin-bottom:3px">Data</span>
+    <b id="snapline">—</b><br>Live market data &middot; <span id="rateline">90 s refresh</span> &middot; read-only demo</div>
+</div>
+<div class="card" id="scancard" style="display:none">
+  <div id="scantab-multi">
+    <div class="sechead"><h3>🌐 Multi-venue scanner</h3><span class="sh">every asset, on every venue</span></div>
     <div class="tscroll"><table><thead><tr><th>Asset</th><th>Type</th><!--VTH:Vari:Vari--><!--VTH:Ethereal:Ethereal--><!--VTH:Nado:Nado--><!--VTH:Lighter:Lighter--><!--VTH:RhLighter:Lighter-RH:vh-rh--><!--VTH:Aster:Aster--><!--VTH:EdgeX:edgeX--><th>Max size</th></tr></thead><tbody id="mrows"></tbody></table></div>
     <div class="hint">The raw funding matrix: every asset, on every venue. <b>Coloured cells</b> mark the row's best pair — red = short this leg, green = long it. <b>Max size</b> is the narrower leg's leverage cap, with the margin it needs below. For a ranked shortlist see <b>Best Pairs</b>; for spread, price gap, cost and break-even, click any row.</div>
   </div>
@@ -1560,6 +1729,8 @@ async function load(force){
   document.getElementById("t_eth").innerHTML="<span class='sym'>ETH-USD</span><span class='mono'>$"+d.sizing.eth_px.toFixed(2)+"</span>"
   const st=d.state
   VLIVE=d.venues||{}
+  renderApiStatus()
+  renderPxChg()
   // a nyitott/beállított pár görbéi — innen hívjuk, mert csak ez a payload tudja, mi az
   renderMeasBar(d)
   document.getElementById("t_pos").innerHTML="<span class='sym'>POSITION</span><span class='mono "+(st.active_config?"g":"y")+"'>"+(st.active_config?"["+st.active_config+"] LIVE":"nincs")+"</span>"
@@ -2059,7 +2230,7 @@ function renderStrat(){
 function setMSort(m){mSort=m;delete SORT['mrows'];for(const x of['spread','tick'])document.getElementById('ms-'+x).classList.toggle('on',x===m);renderMulti()}
 // A kold-start magyarázat csak addig kell, amíg tényleg várni kell rá — az első
 // sikeres szkennelés után eltűnik, a rendes intro-szöveg marad a helyén.
-function hideLoadgate(){const g=document.getElementById('loadgate');if(g)g.style.display='none'}
+function hideLoadgate(){const g=document.getElementById('introbox');if(g)g.style.display='none'}
 function renderMulti(){
  if(!scanData)return
  hideLoadgate()
@@ -2253,49 +2424,194 @@ function heatStyle(v){
  return 'background:rgba('+(v>=0?'74,222,128':'248,113,113')+','+(0.07+a*0.40).toFixed(3)+')'
 }
 function jumpCross(k){setPairVenue(k);showPage('pairs')}
+// ── Dashboard: hatókör, rendezés, mértékegység ──────────────────────────────
+// Három választó szabja meg, MIN mérünk: eszközosztály, venue, frissítési ütem.
+// Az első kettő a négy KPI-ra ÉS mindkét panelra hat — ha csak a táblát szűrné,
+// a fölötte álló szám mást mondana, mint alatta a sorok.
+let dashCat='all',dashVen='all',tvSort='usd',heatUnit='pct'
+function setDashCat(v){dashCat=v;renderDash()}
+function setDashVen(v){dashVen=v;renderDash()}
+function setTvSort(v){tvSort=v;renderDash()}
+function setHeatUnit(v){heatUnit=v;renderDash()}
+function openSettings(){
+ showPage('track')
+ setTimeout(()=>{const c=document.getElementById('cfgcard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'})},80)
+}
+// A hatókörbe eső sorok. A venue-szűrő azt kérdezi: "érintse a kereszt ezt a
+// tőzsdét" — tehát a sor akkor marad bent, ha ott egyáltalán van rátája.
+function dashRows(){
+ let rs=(scanData&&scanData.rows)||[]
+ if(dashCat!=='all')rs=rs.filter(r=>r.cat===dashCat)
+ if(dashVen!=='all')rs=rs.filter(r=>r.aprs&&r.aprs[dashVen]!=null)
+ return rs
+}
+
+// ── a KPI-kártyák görbéje ───────────────────────────────────────────────────
+// 48 óra, EGY lekérésből (/api/kpihist). A nyers mérési történet óránként ~46 kB,
+// és ebből a négy kártyának összesen négy rövid számsor kell — ezért a szerver
+// számolja ki. Ugyanaz a hét venue és ugyanaz a 10%-os küszöb, mint a kártyán,
+// különben a görbe vége nem oda futna ki, ahol a szám áll.
+let KPIH=null
+async function loadKpiHist(){
+ try{
+  const d=await fetch('/api/kpihist').then(r=>r.json())
+  if(d&&d.pts){KPIH=d;renderDash();renderPxChg();renderSnapLine()}
+ }catch(e){}
+}
+// Egy vonal + halvány kitöltés, 102x34-es dobozban. Két pontnál kevesebbnél nincs
+// mit rajzolni: üres doboz, nem egy hazug vízszintes vonal.
+function sparkSVG(vals,col){
+ const xs=(vals||[]).filter(v=>v!=null&&isFinite(v))
+ if(xs.length<2)return '<span class="spark"></span>'
+ const W=102,H=34,P=3
+ const lo=Math.min(...xs),hi=Math.max(...xs),r=(hi-lo)||Math.abs(hi)||1
+ const n=xs.length
+ const px=i=>P+(W-2*P)*(i/(n-1))
+ const py=v=>H-P-(H-2*P)*((v-lo)/r)
+ const d=xs.map((v,i)=>(i?'L':'M')+px(i).toFixed(1)+' '+py(v).toFixed(1)).join(' ')
+ const area=d+' L'+px(n-1).toFixed(1)+' '+(H-P)+' L'+px(0).toFixed(1)+' '+(H-P)+' Z'
+ return '<svg class="spark" viewBox="0 0 '+W+' '+H+'" aria-hidden="true">'
+  +'<path class="ar" d="'+area+'" fill="'+col+'"/>'
+  +'<path class="ln" d="'+d+'" stroke="'+col+'"/></svg>'
+}
+// A sparkline a TELJES piacot méri, a kártya számát viszont a hatókör-választók
+// szűrhetik. Ha szűrve van, nem rajzolunk görbét — két különböző dolgot egymás
+// mellé tenni rosszabb, mint az egyiket elhagyni.
+const sparkOn=()=>dashCat==='all'&&dashVen==='all'&&KPIH&&KPIH.pts&&KPIH.pts.length>1
+const sparkOf=(mezo,col)=>sparkOn()?sparkSVG(KPIH.pts.map(p=>p[mezo]),col):'<span class="spark"></span>'
+
+// ── venue-logó kerek jelvényben, visszaesve a kezdőbetűre ──
+function vbadge(k,nev){
+ return (typeof VLOGO!=='undefined'&&VLOGO[k])
+  ? '<img class="vlogo" src="'+VLOGO[k]+'" alt="">'
+  : '<span class="vlogo vinit">'+String(nev||k).charAt(0)+'</span>'
+}
+
+// ── a tőzsdék állapota az oldalsávon ────────────────────────────────────────
+// A szerver `venues` mezője mondja meg, hány terméke van az adott tőzsdének nem
+// nulla volumennel. Mért érték, nem ping: az Ethereal 2026-08-26-án mind a 18
+// termékét nullára tette — nem az API halt meg, hanem nincs mit kereskedni.
+const STATV=[['Vari','Variational'],['Aster','Aster'],['Nado','Nado'],['Lighter','Lighter'],
+             ['RhLighter','Lighter-RH'],['EdgeX','edgeX'],['Ethereal','Ethereal'],['Phoenix','Phoenix']]
+function renderApiStatus(){
+ const el=document.getElementById('sdstat');if(!el)return
+ el.innerHTML=STATV.map(([k,nev])=>{
+  const v=VLIVE[k]
+  const cl=v==null?'unk':(v.live?'':'off')
+  const t=v==null?'no reading yet':(v.live?v.listings+' products with volume':'nothing listed with volume')
+  return '<div class="row" title="'+nev+' &mdash; '+t+'"><span class="sdot '+cl+'"></span><span class="nm">'+nev+'</span></div>'
+ }).join('')
+}
+// A topbar 24 órás változása a SAJÁT ármérésünkből jön (/api/kpihist), nem külső
+// hívásból. Ha nincs 24 órával ezelőtti pillanatkép, egyszerűen nincs szám.
+const chgSpan=(v)=>v==null?'':' <span class="chg '+(v>=0?'g':'r')+'">'+(v>=0?'+':'−')+(Math.abs(v)*100).toFixed(2)+'%</span>'
+function renderPxChg(){
+ for(const [id,mezo] of [['t_btc','btc_chg'],['t_eth','eth_chg']]){
+  const el=document.getElementById(id);if(!el||!KPIH)continue
+  if(el.querySelector('.chg'))continue
+  el.insertAdjacentHTML('beforeend',chgSpan(KPIH[mezo]))
+ }
+}
+function renderSnapLine(){
+ const el=document.getElementById('snapline');if(!el)return
+ const n=(KPIH&&KPIH.hours)||(scanData&&scanData.histHours)||0
+ el.textContent=n?(n+' hourly snapshots · raw at /api/archive'):'raw measurements at /api/archive'
+}
+
 function renderDash(){
  const kp=document.getElementById('dkpis');if(!kp||!scanData)return
  document.getElementById('dashover').style.display=''
  const leg=+((document.getElementById('sleg')||{}).value)||3000
- const opps=(scanData.rows||[]).filter(isOpp)      // a rows spread szerint rendezve jön
+ const rows=dashRows()
+ const opps=rows.filter(isOpp)          // a rows spread szerint rendezve jön
  const best=opps[0]||null
  const atlag=opps.length?opps.reduce((s,r)=>s+Math.abs(r.pair.diff),0)/opps.length:null
  // A napi $ szándékosan az ÖT legjobb összege, nem mind a ~700-é: öt kereszt öt lába
  // olyan kosár, amit tényleg fel lehet venni — a teljes összeg csak nagy szám lenne.
  const top5=opps.slice(0,5).reduce((s,r)=>s+leg*Math.abs(r.pair.diff)/365,0)
- kp.innerHTML=[
-  ['Top opportunity',best?scP(best.pair.diff):'—',best?best.sym+' · '+vNev(best.pair.short)+' ↔ '+vNev(best.pair.long):'nothing over '+scP(OPP_MIN,0)],
-  ['Opportunities',String(opps.length),'≥'+scP(OPP_MIN,0)+' spread, both legs liquid'],
-  ['Avg spread',atlag==null?'—':scP(atlag),'across those '+opps.length],
-  ['$ / day · best 5','$'+top5.toFixed(2),'at a $'+leg.toLocaleString('en-GB')+' leg each'],
- ].map(([l,v,s])=>'<div class="kpi"><div class="t-label">'+l+'</div><div class="t-data" style="font-size:25px;margin-top:6px">'+v+'</div><div class="t-meta sub">'+s+'</div></div>').join('')
- // ── keresztek rangsora ──
- const sorok=PAIRVENUES.map(def=>{
-  const rows=crossRows(def),o=rows.filter(isOpp)
-  const b=o.reduce((a,c)=>(!a||Math.abs(c.diff)>Math.abs(a.diff))?c:a,null)
-  return {def,n:o.length,best:b,egyir:o.filter(r=>r.aligned===true).length,
-          usd:b?leg*Math.abs(b.diff)/365:0}
- }).sort((a,b)=>b.usd-a.usd)
- document.getElementById('topvrows').innerHTML=sorok.map(s=>
-  '<tr style="cursor:pointer" onclick="jumpCross(\''+s.def.k+'\')">'
-  +'<td class="pn">Vari ↔ '+s.def.nev+'</td>'
+ const G='#4ade80',B='#a78bfa'
+ const kart=[
+  ['Top opportunity',best?scP(best.pair.diff):'—',
+   best?best.sym+' · '+vNev(best.pair.short)+' ↔ '+vNev(best.pair.long):'nothing over '+scP(OPP_MIN,0),
+   sparkOf('top',G),'jumpBest()','lead'],
+  ['Opportunities',String(opps.length),'≥'+scP(OPP_MIN,0)+' spread, both legs liquid',
+   sparkOf('opps',B),"showPage('strat')",''],
+  ['Avg spread',atlag==null?'—':scP(atlag),'across those '+opps.length,
+   sparkOf('avg',B),"showPage('pairs')",''],
+  ['$ / day · best 5','$'+top5.toFixed(2),'at a $'+leg.toLocaleString('en-GB')+' leg each',
+   sparkOf('usd',G),"showPage('strat')",''],
+ ]
+ kp.innerHTML=kart.map(([l,v,s,sp,go,cl])=>
+  '<div class="kpi '+cl+'" onclick="'+go+'" title="Open the page behind this number">'
+  +'<div class="chev">›</div><div class="t-label">'+l+'</div>'
+  +'<div class="krow"><div class="t-data kval">'+v+'</div>'+sp+'</div>'
+  +'<div class="t-meta sub">'+s+'</div></div>').join('')
+
+ // ── keresztek rangsora ────────────────────────────────────────────────────
+ // MINDEN venue-pár, nem csak a hat Vari-kereszt. A hat Varinak van saját, gazdagabb
+ // payloadja (költség, break-even, 7 nap) — a rangsorhoz viszont elég a közös alak,
+ // amit az `aprs` / `pxs` / `liq` mezőkből bármelyik párra ugyanúgy ki lehet számolni.
+ // Ugyanaz a mérce minden sorra: enélkül a táblában kétféle szám keveredne.
+ const LIQIX={Vari:0,Ethereal:1,Nado:2,Lighter:3,Aster:4,EdgeX:5,RhLighter:6}
+ const likvid=(r,k)=>!r.liq||LIQIX[k]==null||r.liq[LIQIX[k]]!=='0'
+ const HV=HEATV.filter(([k])=>rows.some(r=>r.aprs&&r.aprs[k]!=null))
+ const NEV=Object.fromEntries(HEATV)
+ const keresztek=[]
+ for(let i=0;i<HV.length;i++)for(let k=i+1;k<HV.length;k++){
+  const A=HV[i][0],B=HV[k][0]
+  if(dashVen!=='all'&&A!==dashVen&&B!==dashVen)continue
+  let n=0,ali=0,bp=null
+  for(const r of rows){
+   const x=r.aprs&&r.aprs[A],y=r.aprs&&r.aprs[B]
+   if(x==null||y==null)continue
+   if(!likvid(r,A)||!likvid(r,B))continue
+   const d=x-y
+   if(Math.abs(d)<OPP_MIN)continue
+   n++
+   // Egyirányú, ha a funding a DRÁGÁBB lábat shortoltatja: akkor a rés szűkülése
+   // a carry MELLÉ fizet, nem ellene. Ehhez kell a két láb ára, nem csak a rátája.
+   const sK=d>=0?A:B,lK=d>=0?B:A
+   const ps=r.pxs&&r.pxs[sK],pl=r.pxs&&r.pxs[lK]
+   if(ps!=null&&pl!=null&&ps>pl)ali++
+   if(!bp||Math.abs(d)>Math.abs(bp.d))bp={d,sym:r.sym,short:sK,long:lK}
+  }
+  if(!n)continue
+  keresztek.push({A,B,n,ali,bp,usd:bp?leg*Math.abs(bp.d)/365:0,
+                  jump:(A==='Vari'&&HEATJUMP[B])?HEATJUMP[B]:(B==='Vari'&&HEATJUMP[A])?HEATJUMP[A]:null})
+ }
+ const kulcs={usd:s=>s.usd,spread:s=>s.bp?Math.abs(s.bp.d):0,opps:s=>s.n,aligned:s=>s.ali}[tvSort]||(s=>s.usd)
+ keresztek.sort((a,b)=>kulcs(b)-kulcs(a))
+ // A ★ az első négyre megy, és nem dísz: a rangsor élén álló négy kereszt az,
+ // amin a kiválasztott mérce szerint egyáltalán van mit nézni.
+ document.getElementById('topvrows').innerHTML=keresztek.length?keresztek.map((s,i)=>{
+  const kat=s.jump?("jumpCross('"+s.jump+"')"):("jumpPair('"+s.bp.short+"','"+s.bp.long+"')")
+  // A nyíl IRÁNYT mond: a bal oldali lábat shortolod, a jobbat longolod. Ezért a sor
+  // a legjobb pár saját irányát viseli, nem a mátrix (A,B) sorrendjét — és így a
+  // spread mellől eltűnik az előjel: ami ott áll, az a megkapható különbség.
+  const S=s.bp.short,L=s.bp.long
+  return '<tr onclick="'+kat+'" title="'+(s.jump?'Open this cross in the Pairs Scanner':'Not a Variational cross — opens the deep dive on '+s.bp.sym)+'">'
+  +'<td class="rk">'+(i+1)+'</td><td class="st">'+(i<4?'★':'')+'</td>'
+  +'<td class="pn"><span class="xw">'+vbadge(S,NEV[S]||S)+vNev(S)
+   +'<span class="ar">→</span>'+vbadge(L,NEV[L]||L)+vNev(L)+'</span></td>'
   +'<td class="mono '+(s.n?'':'d')+'">'+s.n+'</td>'
-  +'<td class="mono big '+(s.best&&Math.abs(s.best.diff)>=0.3?'g':s.best?'y':'d')+'">'+(s.best?scP(s.best.diff):'—')
-   +(s.best?'<br><span class="d" style="font-size:10px">'+s.best.sym+'</span>':'')+'</td>'
-  +'<td class="mono g">'+(s.best?'$'+s.usd.toFixed(2):'—')+'</td>'
-  +'<td class="mono '+(s.egyir?'g':'d')+'">'+(s.n?s.egyir+' / '+s.n:'—')+'</td></tr>').join('')
- // ── hőtérkép ──
+  +'<td class="mono big '+(s.bp&&Math.abs(s.bp.d)>=0.3?'g':s.bp?'y':'d')+'">'+(s.bp?scP(Math.abs(s.bp.d)):'—')
+   +(s.bp?'<br><span class="d" style="font-size:10px">'+s.bp.sym+'</span>':'')+'</td>'
+  +'<td class="mono g">'+(s.bp?'$'+s.usd.toFixed(2):'—')+'</td>'
+  +'<td class="mono '+(s.ali?'g':'d')+'">'+(s.n?s.ali:'—')+'</td></tr>'
+ }).join('')
+  :'<tr><td colspan="7" class="d" style="padding:18px 0;text-align:center">Nothing in scope — widen the asset or venue filter.</td></tr>'
+
+ // ── hőtérkép ──────────────────────────────────────────────────────────────
  // Keresztenként EGY pár: a legnagyobb abszolút különbségű. A tükörcella ugyanaz
  // ellentétes előjellel, ezért elég a felső háromszöget kiszámolni.
  // Csak az a venue kerül a mátrixba, ami MOST ad rátát. Nem kozmetika: 2026-08-26-án
  // az Ethereal mind a 18 termékét DELISTED-re tette 0 volumennel, és egy végig üres
  // sor+oszlop úgy néz ki, mintha a tábla lenne hibás. Ha visszatér, magától megjelenik.
- const HV=HEATV.filter(([k])=>(scanData.rows||[]).some(r=>r.aprs&&r.aprs[k]!=null))
  const M={}
  for(const [a] of HV){M[a]={}}
  for(let i=0;i<HV.length;i++)for(let k=i+1;k<HV.length;k++){
   const A=HV[i][0],B=HV[k][0];let bestD=null,bestS=null
-  for(const r of (scanData.rows||[])){
+  for(const r of rows){
    const x=r.aprs&&r.aprs[A],y=r.aprs&&r.aprs[B]
    if(x==null||y==null)continue
    const d=x-y;if(bestD==null||Math.abs(d)>Math.abs(bestD)){bestD=d;bestS=r.sym}
@@ -2303,20 +2619,42 @@ function renderDash(){
   M[A][B]=bestD==null?null:{d:bestD,sym:bestS}
   M[B][A]=bestD==null?null:{d:-bestD,sym:bestS}
  }
- const fej='<tr><th class="rw"></th>'+HV.map(([,l])=>'<th>'+l+'</th>').join('')+'</tr>'
- const test=HV.map(([a,la])=>'<tr><th class="rw">'+la+'</th>'+HV.map(([b])=>{
+ const fej='<tr><th class="rw"></th>'+HV.map(([k,l])=>'<th><span class="vhw">'+vbadge(k,l)+'<span>'+l+'</span></span></th>').join('')+'</tr>'
+ const cella=(d)=>heatUnit==='usd'?((d<0?'−$':'$')+(leg*Math.abs(d)/365).toFixed(2)):scP(d,0)
+ const test=HV.map(([a,la])=>'<tr><th class="rw"><span class="vhw">'+vbadge(a,la)+'<span>'+la+'</span></span></th>'+HV.map(([b])=>{
   if(a===b)return '<td class="self">·</td>'
   const c=M[a][b]
   if(!c)return '<td class="na" title="No asset listed on both">—</td>'
   const ug=(a==='Vari'&&HEATJUMP[b])?HEATJUMP[b]:(b==='Vari'&&HEATJUMP[a])?HEATJUMP[a]:null
   return '<td class="'+(ug?'hit':'')+'" style="'+heatStyle(c.d)+'"'
-   +(ug?' onclick="jumpCross(\''+ug+'\')"':'')
+   +(ug?" onclick=\"jumpCross('"+ug+"')\"":'')
    +' title="'+c.sym+' — short '+vNev(a)+' / long '+vNev(b)+' at '+scP(c.d)+(ug?' · click to open the cross':'')+'">'
-   +scP(c.d,0)+'</td>'
+   +cella(c.d)+'</td>'
  }).join('')+'</tr>').join('')
  document.getElementById('heat').innerHTML='<thead>'+fej+'</thead><tbody>'+test+'</tbody>'
-}
 
+ // A venue-választó a MOST élő tőzsdékből töltődik, nem hardkódolt listából.
+ const vs=document.getElementById('d_ven')
+ if(vs&&vs.options.length!==HV.length+1){
+  const volt=vs.value
+  vs.innerHTML='<option value="all">All venues</option>'+HV.map(([k,l])=>'<option value="'+k+'">'+l+'</option>').join('')
+  vs.value=HV.some(([k])=>k===volt)?volt:'all'
+  if(vs.value!==volt)dashVen='all'
+ }
+ renderSnapLine()
+}
+// A legjobb lehetőség kártyája oda visz, ahol tényleg meg lehet nézni.
+function jumpBest(){
+ const b=dashRows().filter(isOpp)[0];if(!b)return showPage('strat')
+ const k=(b.pair.short==='Vari'&&HEATJUMP[b.pair.long])?HEATJUMP[b.pair.long]
+        :(b.pair.long==='Vari'&&HEATJUMP[b.pair.short])?HEATJUMP[b.pair.short]:null
+ if(k)jumpCross(k);else diveInto(b.sym)
+}
+// Nem-Vari kereszt: a Pairs Scanner csak Vari-párokat tud, ezért a mélyfúrás nyílik.
+function jumpPair(a,b){
+ const r=dashRows().find(x=>x.aprs&&x.aprs[a]!=null&&x.aprs[b]!=null)
+ if(r)diveInto(r.sym)
+}
 // ── PAIRS SCANNER ───────────────────────────────────────────────────────────
 // A hat Vari-kereszt payload-alakja NEM egységes: ugyanaz a szám hol nApr, hol
 // lApr / pApr / oApr néven jön, a Vari+Phoenixnél pedig a "volumen" valójában OI.
@@ -2449,6 +2787,7 @@ async function loadScan(){
   const d=await fetch('/api/scan').then(r=>r.json())
   scanData=d
   document.getElementById('scancard').style.display=""
+  document.getElementById('setbar').style.display=""
   renderDash();renderMulti();renderStrat();renderPairs();renderGapWatch()
   // A Beállítások a /api/data-ból renderelődik, ami HAMARABB megjön, mint a
   // /api/scan — ezért az eszközlista első renderkor még üres. Itt töltjük fel.
@@ -3044,7 +3383,7 @@ function restoreLegs(){
 }
 restoreLegs()
 // a napló-típus is ott marad, ahol utoljára hagytad
-loadMe();load();loadNaplo();airdropPlat();loadScan()
+loadMe();load();loadNaplo();airdropPlat();loadScan();loadKpiHist()
 // ── a drága ciklusok csak elöl lévő fülön ────────────────────────────────────
 // A /api/scan a legnagyobb válasz a lapon. Őrizetlenül 90 másodpercenként lekérni
 // egy háttérben felejtett fülből napi több száz megabájt — a szülő projektben
@@ -3054,8 +3393,44 @@ loadMe();load();loadNaplo();airdropPlat();loadScan()
 // Visszatéréskor azonnal frissítünk, különben állott adatot néznél — de csak ha
 // tényleg eltelt egy ciklus, hogy a fülek közti kapkodás ne indítson szkent.
 let lastFetchAt=Date.now()
-const haLathato=(fn)=>()=>{if(!document.hidden){lastFetchAt=Date.now();fn()}}
-setInterval(haLathato(load),90000);setInterval(haLathato(loadScan),90000)
+// A frissítési ütem a fejléc harmadik választójából jön, és a `Paused` tényleg
+// megállítja a lapot — a ↻ gomb marad. Nem kozmetika: a /api/scan a lap legnagyobb
+// válasza, és egy háttérben felejtett fül ebből napi több száz megabájtot csinál.
+let REFRESH_S=90,_rtimer=null,_next=0
+function setRefresh(v){
+ REFRESH_S=+v||0
+ try{localStorage.setItem('dn_refresh',String(REFRESH_S))}catch{}
+ const cim=REFRESH_S<120?REFRESH_S+'s':Math.round(REFRESH_S/60)+' min'
+ const rl=document.getElementById('rateline')
+ if(rl)rl.textContent=REFRESH_S?(cim+' refresh'):'paused'
+ const sm=document.getElementById('sd_mode')
+ if(sm)sm.textContent=REFRESH_S?('Live ('+cim+')'):'Paused'
+ const sd=document.getElementById('sd_live')
+ if(sd)sd.className='sdot'+(REFRESH_S?'':' unk')
+ planRefresh()
+}
+function planRefresh(){
+ if(_rtimer){clearTimeout(_rtimer);_rtimer=null}
+ if(!REFRESH_S){_next=0;return}
+ _next=Date.now()+REFRESH_S*1000
+ _rtimer=setTimeout(()=>{
+  if(!document.hidden){lastFetchAt=Date.now();load();loadScan()}
+  planRefresh()
+ },REFRESH_S*1000)
+}
+// Másodperces visszaszámláló a vezérlősávban — enélkül a „Paused” és az „él, csak
+// most nem történik semmi” ugyanúgy néz ki.
+setInterval(()=>{
+ const el=document.getElementById('cdown');if(!el)return
+ if(!REFRESH_S){el.textContent='paused';return}
+ el.textContent='next scan '+Math.max(0,Math.round((_next-Date.now())/1000))+'s'
+},1000)
+try{
+ const mentett=localStorage.getItem('dn_refresh')
+ const sel=document.getElementById('d_rate')
+ if(mentett!=null&&sel&&[...sel.options].some(o=>o.value===mentett))sel.value=mentett
+ setRefresh(sel?sel.value:90)
+}catch{setRefresh(90)}
 document.addEventListener('visibilitychange',()=>{
  if(document.hidden||Date.now()-lastFetchAt<60000)return
  lastFetchAt=Date.now();load();loadScan()
