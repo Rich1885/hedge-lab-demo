@@ -626,7 +626,7 @@ a.tgbtn{text-decoration:none}
 .sc-foot .t-label{font-size:8px;letter-spacing:1px;margin-top:2px}
 .sc-cta{margin-top:11px;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--faint);transition:.14s}
 .scard:hover .sc-cta{color:var(--blue)}
-.side{position:fixed;left:0;top:0;bottom:0;width:206px;background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:30}
+.side{position:fixed;left:0;top:0;bottom:0;width:var(--sidew,206px);background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:30}
 .sbrand{display:flex;align-items:center;gap:8px;padding:0 18px;height:var(--tbh);font-size:14px;font-weight:800;letter-spacing:.4px;border-bottom:1px solid var(--line)}
 .sbrand b{color:var(--blue)}
 .snav{display:flex;flex-direction:column;gap:2px;padding:14px 10px;flex:1}
@@ -637,7 +637,7 @@ a.tgbtn{text-decoration:none}
 .sfoot{padding:14px 18px;border-top:1px solid var(--line)}
 .sfoot a{color:var(--faint);text-decoration:none;font-size:12px;font-weight:600}
 .sfoot a:hover{color:var(--blue)}
-.mainpane{margin-left:206px}
+.mainpane{margin-left:var(--sidew,206px)}
 @media(max-width:860px){
   .side{position:sticky;top:0;width:auto;flex-direction:row;align-items:center;border-right:0;border-bottom:1px solid var(--line)}
   .sbrand{border-bottom:0}
@@ -875,17 +875,58 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
 .ptool .dsel::after{right:10px}
 .ptool .cdown{margin-right:2px}
 
+/* ── Összecsukható oldalsáv ─────────────────────────────────────────────────
+   Nem eltüntetés, hanem ikon-sáv: a lapok így is egy kattintásra vannak, és a
+   kapcsoló nem tűnik el magával együtt. 206 → 58 px, amit a tábláknak ad vissza
+   (a Multi-Venue hét oszlopán ez két fél oszlopnyi hely).
+   A szélesség EGY változó, a sáv és a főpanel margója is abból él — két külön
+   szám itt garantáltan elcsúszna.
+   860 px alatt nincs értelme: ott a sáv már vízszintes fülsor. */
+:root{--sidew:206px}
+.side,.mainpane{transition:width .16s ease,margin-left .16s ease}
+.sbrand{gap:8px}
+.sbrand .bn{white-space:nowrap;overflow:hidden}
+.sidetog{margin-left:auto;flex:0 0 auto;width:26px;height:26px;display:inline-flex;
+ align-items:center;justify-content:center;background:transparent;border:1px solid var(--line2);
+ border-radius:var(--r-xs);color:var(--faint);cursor:pointer;padding:0;transition:.13s}
+.sidetog:hover{border-color:var(--blue);color:var(--blue)}
+/* A nyíl ::before-ból jön, hogy a két állapot egy szabályon múljon. */
+.sidetog::before{content:'\00AB';font-size:13px;line-height:1}
+body.sidemini .sidetog::before{content:'\00BB'}
+body.sidemini{--sidew:58px}
+body.sidemini .sbrand{padding:0 0;justify-content:center}
+body.sidemini .sbrand .bn,body.sidemini .sbrand .live{display:none}
+body.sidemini .sidetog{margin-left:0}
+body.sidemini .snav{padding:14px 8px}
+body.sidemini .snavi{justify-content:center;padding:11px 0;gap:0}
+body.sidemini .snavi .lb{display:none}
+/* Az API-állapot és az Overview-link összecsukva nem fér ki olvashatóan; a pontok
+   nélküle is ott vannak a Multi-Venue oszlop-kapcsolóin. */
+body.sidemini .sblk,body.sidemini .sfoot{display:none}
+@media(max-width:860px){
+  :root{--sidew:auto}
+  body.sidemini{--sidew:auto}
+  .sidetog{display:none}
+  body.sidemini .snavi .lb{display:inline}
+  body.sidemini .snavi{justify-content:flex-start;padding:9px 10px;gap:8px}
+  body.sidemini .sbrand .bn{display:inline}
+}
+@media(max-width:640px){
+  body.sidemini .snavi{flex-direction:column;justify-content:center;gap:5px;padding:8px 2px}
+}
+
 </style></head><body>
 <div class="side">
-  <div class="sbrand"><span class="live"></span>HEDGE<b>LAB</b></div>
+  <div class="sbrand"><span class="live"></span><span class="bn">HEDGE<b>LAB</b></span>
+    <button class="sidetog" id="sidetog" onclick="toggleSide()" aria-label="Collapse the sidebar"></button></div>
   <nav class="snav">
-    <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 15v2"/><path d="M12 9v8"/><path d="M17 5v12"/></svg></span>Dashboard</button>
-    <button class="snavi"    id="nav-multi" onclick="showPage('multi')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span>Multi-Venue</button>
-    <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4-4"/></svg></span>Pairs Scanner</button>
-    <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span>Best Pairs</button>
-    <button class="snavi"    id="nav-gap"   onclick="showPage('gap')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.5a6 6 0 1 0-12 0c0 6.5-2.5 8-2.5 8h17S18 15 18 8.5"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/></svg></span>Gap Watch</button>
-    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg></span>Position</button>
-    <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/></svg></span>History</button>
+    <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 15v2"/><path d="M12 9v8"/><path d="M17 5v12"/></svg></span><span class="lb">Dashboard</span></button>
+    <button class="snavi"    id="nav-multi" onclick="showPage('multi')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span><span class="lb">Multi-Venue</span></button>
+    <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4-4"/></svg></span><span class="lb">Pairs Scanner</span></button>
+    <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span><span class="lb">Best Pairs</span></button>
+    <button class="snavi"    id="nav-gap"   onclick="showPage('gap')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.5a6 6 0 1 0-12 0c0 6.5-2.5 8-2.5 8h17S18 15 18 8.5"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/></svg></span><span class="lb">Gap Watch</span></button>
+    <button class="snavi"    id="nav-track" onclick="showPage('track')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg></span><span class="lb">Position</span></button>
+    <button class="snavi"    id="nav-hist"  onclick="showPage('hist')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.2V12l3.2 2"/></svg></span><span class="lb">History</span></button>
   </nav>
   <!-- A frissulesi utem es a tozsdek allapota. Mindketto MERT ertek: a cadence az
        eppen beallitott szamlalobol, a pontok a szerver `venues` mezojebol. -->
@@ -2277,6 +2318,25 @@ function setMSort(m){mSort=m;delete SORT['mrows'];renderMulti()}
 // A kold-start magyarázat csak addig kell, amíg tényleg várni kell rá — az első
 // sikeres szkennelés után eltűnik, a rendes intro-szöveg marad a helyén.
 function hideLoadgate(){const g=document.getElementById('introbox');if(g)g.style.display='none'}
+// ── Összecsukható oldalsáv ──────────────────────────────────────────────────
+// Összecsukva ikon-sáv marad, nem tűnik el: a lapok egy kattintásra vannak, és a
+// kapcsoló sem megy vele együtt. Az állapot megmarad, mert aki nagy képernyőn
+// becsukta, az nem minden betöltéskor akarja újra becsukni. A feliratok ilyenkor
+// a gomb title-jében élnek tovább.
+function setSide(mini){
+ const b=document.body
+ b.classList.toggle('sidemini',!!mini)
+ const t=document.getElementById('sidetog')
+ if(t)t.title=mini?'Expand the sidebar':'Collapse the sidebar'
+ for(const n of document.querySelectorAll('.snavi')){
+  const lb=n.querySelector('.lb')
+  n.title=mini&&lb?lb.textContent:''
+ }
+ try{localStorage.setItem('dn_sidemini',mini?'1':'0')}catch{}
+}
+function toggleSide(){setSide(!document.body.classList.contains('sidemini'))}
+try{setSide(localStorage.getItem('dn_sidemini')==='1')}catch{setSide(false)}
+
 // ── MULTI-VENUE ─────────────────────────────────────────────────────────────
 // Saját lap, nem a dashboard alja. Ott 40 sorra volt vágva a ~700-ból, ami egy
 // mátrixnál nem rövidítés, hanem félrevezetés: pont az nem látszott, mennyi van.
