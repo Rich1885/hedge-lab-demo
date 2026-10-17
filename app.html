@@ -851,11 +851,36 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
 .cdown{font-family:"Cascadia Mono",Consolas,monospace;font-size:11.5px;color:var(--dim);white-space:nowrap}
 @media(max-width:760px){.setbar .right{margin-left:0;text-align:left;white-space:normal}}
 
+/* ── Multi-Venue: oszlop-kapcsolók ──────────────────────────────────────────
+   Hét venue-oszlop több, mint amennyit egy képernyőn össze lehet hasonlítani.
+   A „dead" a tőzsde saját állapota (nem listáz semmit volumennel) — kikapcsolni
+   így is lehet, de látszik, hogy az oszlop nem a mi hibánkból üres. */
+.vtog{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 13px}
+.vtog button{display:flex;align-items:center;gap:7px;background:var(--card2);
+ border:1px solid var(--line2);border-radius:999px;padding:6px 9px;color:var(--faint);
+ font:700 11.5px/1 'Inter',system-ui,sans-serif;cursor:pointer;transition:.13s;width:auto}
+.vtog button:hover{border-color:var(--blue);color:var(--tx)}
+.vtog button.on{border-color:var(--purple);color:var(--tx);background:var(--bbg)}
+.vtog button.dead{opacity:.45}
+.vtog .vlogo{width:17px;height:17px;border-radius:50%;opacity:.45;transition:opacity .13s;flex:0 0 auto}
+.vtog button.on .vlogo{opacity:1}
+.vtog .vinit{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;
+ border-radius:50%;background:var(--elev);color:var(--dim);font:800 8px/1 'Inter',system-ui,sans-serif;flex:0 0 auto}
+.vtog .nm{margin-right:2px}
+.vtog .cb{width:13px;height:13px;border-radius:3.5px;border:1.5px solid var(--line2);flex:0 0 auto;
+ display:inline-flex;align-items:center;justify-content:center;font-size:8.5px;color:transparent;transition:.13s}
+.vtog button.on .cb{background:var(--purple);border-color:var(--purple);color:#140c2b}
+/* A rendező legördülő a kereső-sorban ül, nem panel-fejlécben. */
+.ptool .dsel select{padding:7px 27px 7px 11px;font-size:11.5px}
+.ptool .dsel::after{right:10px}
+.ptool .cdown{margin-right:2px}
+
 </style></head><body>
 <div class="side">
   <div class="sbrand"><span class="live"></span>HEDGE<b>LAB</b></div>
   <nav class="snav">
     <button class="snavi on" id="nav-dash"  onclick="showPage('dash')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 15v2"/><path d="M12 9v8"/><path d="M17 5v12"/></svg></span>Dashboard</button>
+    <button class="snavi"    id="nav-multi" onclick="showPage('multi')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span>Multi-Venue</button>
     <button class="snavi"    id="nav-pairs" onclick="showPage('pairs')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4-4"/></svg></span>Pairs Scanner</button>
     <button class="snavi"    id="nav-strat" onclick="showPage('strat')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span>Best Pairs</button>
     <button class="snavi"    id="nav-gap"   onclick="showPage('gap')"><span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8.5a6 6 0 1 0-12 0c0 6.5-2.5 8-2.5 8h17S18 15 18 8.5"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/></svg></span>Gap Watch</button>
@@ -936,7 +961,7 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
       <div class="tscroll"><table class="topv"><thead><tr>
         <th class="rk">#</th><th class="st"></th><th>Cross</th><th>Opportunities</th><th>Top spread</th><th>$ / day · top</th><th>Aligned</th>
       </tr></thead><tbody id="topvrows"></tbody></table></div>
-      <div class="hint">Click a row to open that cross in the <b>Pairs Scanner</b>. <b>Aligned</b> counts the opportunities where the price gap pulls the same way as the funding — those are the ones where a narrowing gap pays you on top of the carry.</div>
+      <div class="hint">The top five crosses by whatever the selector above is set to — change it and a different five come up. Click a row to open that cross in the <b>Pairs Scanner</b>; the full matrix behind these numbers is on <b>Multi-Venue</b>. <b>Aligned</b> counts the opportunities where the price gap pulls the same way as the funding — those are the ones where a narrowing gap pays you on top of the carry.</div>
     </div>
     <div class="card">
       <div class="sechead"><h3>Heatmap · best spread</h3><span class="sh">short the row, long the column</span>
@@ -953,48 +978,66 @@ th.sorted::after{content:attr(data-dir);font-size:8px;margin-left:4px;vertical-a
      fejlecebe volt beleszortva float:right-tal, ahol se nem latszott, se nem
      fert el. A jobb szelen a DATA blokk: mibol dolgozik a lap. -->
 <div class="setbar" id="setbar" style="display:none">
-  <span class="lbl">Scanner settings</span>
+  <span class="lbl">Scope</span>
   <div class="sep"></div>
   <div class="grp"><span class="lbl">Leg ($)</span>
-    <input id="sleg" type="number" value="3000" step="100" min="50" oninput="saveLeg(this);renderMulti();renderDash();renderStrat();renderGapWatch()"></div>
-  <div class="sep"></div>
-  <div class="grp"><span class="lbl">Filter</span>
-    <button class="filt on" id="fm-all" onclick="setCatM('all')">All</button>
-    <button class="filt" id="fm-RWA" onclick="setCatM('RWA')">RWA</button>
-    <button class="filt" id="fm-alt" onclick="setCatM('alt')">Alt</button>
-    <button class="filt" id="fm-major" onclick="setCatM('major')">Major</button>
-    <button class="filt" id="eg-m" onclick="toggleEgyirM()" title="Only pairs where funding has you short the MORE EXPENSIVE leg — a narrowing gap then pays you too.">✓ Aligned</button></div>
-  <div class="sep"></div>
-  <div class="grp"><span class="lbl">Sort</span>
-    <button class="filt on" id="ms-spread" onclick="setMSort('spread')">Spread</button>
-    <button class="filt" id="ms-tick" onclick="setMSort('tick')">Next tick $</button></div>
+    <input id="sleg" class="leginp" type="number" value="3000" step="100" min="50" oninput="syncLeg(this)"></div>
   <div class="sep"></div>
   <div class="grp"><span class="cdown" id="cdown">—</span>
     <button class="refresh" onclick="loadScan()">⟳</button></div>
   <div class="right"><span class="lbl" style="display:block;margin-bottom:3px">Data</span>
     <b id="snapline">—</b><br>Live market data &middot; <span id="rateline">90 s refresh</span> &middot; read-only demo</div>
 </div>
-<div class="card" id="scancard" style="display:none">
-  <div id="scantab-multi">
-    <div class="sechead"><h3>🌐 Multi-venue scanner</h3><span class="sh">every asset, on every venue</span></div>
-    <div class="tscroll"><table><thead><tr><th>Asset</th><th>Type</th><!--VTH:Vari:Vari--><!--VTH:Ethereal:Ethereal--><!--VTH:Nado:Nado--><!--VTH:Lighter:Lighter--><!--VTH:RhLighter:Lighter-RH:vh-rh--><!--VTH:Aster:Aster--><!--VTH:EdgeX:edgeX--><th>Max size</th></tr></thead><tbody id="mrows"></tbody></table></div>
-    <div class="hint">The raw funding matrix: every asset, on every venue. <b>Coloured cells</b> mark the row's best pair — red = short this leg, green = long it. <b>Max size</b> is the narrower leg's leverage cap, with the margin it needs below. For a ranked shortlist see <b>Best Pairs</b>; for spread, price gap, cost and break-even, click any row.</div>
+</section>
+
+<!-- ══ MULTI-VENUE · a nyers funding-mátrix ══
+     Saját lap, nem a dashboard alja. Ott 40 sorra volt vágva ~700-ból, ami egy
+     mátrixnál nem rövidítés, hanem félrevezetés: pont az nem látszott, hogy
+     mennyi van. Itt a szűrők döntik el, mi marad, nem egy rejtett plafon. -->
+<section id="pg-multi" style="display:none">
+  <div class="crumb">
+    <span class="lbl">Multi-Venue</span><span class="sep">›</span>
+    <span class="cur" id="mcount">every asset, every venue</span>
   </div>
-  <details class="legend">
-    <summary>❔ What do the columns mean? <span class="cnt">click to expand</span></summary>
-    <div class="body">
-      <h3>🌐 Multi-venue scanner</h3>
-      <ul>
-        <li><b>Asset</b> — the symbol; ⚠ marks pairs where no combination has ≥$10k of 24h volume on both legs (thin book, size down).</li>
-        <li><b>Vari / Ethereal / Nado / Lighter / Lighter-RH / Aster / edgeX</b> — that venue's current annualised funding rate (APR), each normalised from its own publishing convention and interval.</li>
-        <li><b>Coloured cells</b> — the row's best pair: <b>red</b> border = short this leg (you receive funding), <b>green</b> = long this leg (you pay). Their difference is the spread.</li>
-        <li><b>Max size</b> — the leverage cap of the <b>narrower</b> leg, with the margin that leg needs below it. A venue capping at ≤5× is telling you its book is thin — and on a thin book the price gap moves further than the funding pays.</li>
-        <li><b>Type</b> — RWA / ALT / MAJOR. Funding behaves differently in each: RWAs settle on 8h intervals on Variational, alts mostly hourly elsewhere.</li>
-        <li>Everything else — spread, price gap, round-trip cost, break-even, 7-day history — is one click away in the deep dive, and ranked for you on <b>Best Pairs</b>.</li>
-      </ul>
+  <div class="card" id="scancard" style="display:none">
+    <div class="ptool">
+      <input class="psearch" id="mq" type="search" placeholder="&#128269;  Search asset&hellip;" oninput="multiSearch(this.value)" autocomplete="off">
+      <button class="filt on" id="fm-all" onclick="setCatM('all')">All</button>
+      <button class="filt" id="fm-RWA" onclick="setCatM('RWA')">RWA</button>
+      <button class="filt" id="fm-alt" onclick="setCatM('alt')">Alt</button>
+      <button class="filt" id="fm-major" onclick="setCatM('major')">Major</button>
+      <button class="filt" id="eg-m" onclick="toggleEgyirM()" title="Only pairs where funding has you short the MORE EXPENSIVE leg — a narrowing gap then pays you too.">&#10003; Aligned</button>
+      <div class="dsel"><select id="ms_sel" onchange="setMSort(this.value)" title="What the rows are ordered by">
+        <option value="spread">&#8645; Spread</option>
+        <option value="tick">&#8645; Next tick in $</option>
+        <option value="asset">&#8645; Asset</option>
+      </select></div>
+      <span class="sp"></span>
+      <span class="cdown" id="mcdown">&mdash;</span>
+      <span class="t-meta">Leg size</span>
+      <input id="mleg" class="leginp" type="number" value="3000" step="100" min="50" oninput="syncLeg(this)" style="width:82px;padding:6px 9px">
+      <button class="refresh" onclick="loadScan()">&#10227;</button>
     </div>
-  </details>
-</div>
+    <!-- Oszlop-kapcsolók. Hét venue-t egyszerre összehasonlítani nem lehet; ami
+         épp nem érdekel, az inkább ne foglaljon helyet. A választás megmarad. -->
+    <div class="vtog" id="vtog"></div>
+    <div class="tscroll"><table><thead><tr id="mhead"></tr></thead><tbody id="mrows"></tbody></table></div>
+    <div class="hint">The raw funding matrix: every asset, on every venue you left switched on. <b>Coloured cells</b> mark the row's best pair — red = short this leg, green = long it; if that pair's venue is switched off, the row shows no colour. <b>Max size</b> is the narrower leg's leverage cap, with the margin it needs below. For a ranked shortlist see <b>Best Pairs</b>; for spread, price gap, cost and break-even, click any row.</div>
+    <details class="legend">
+      <summary>&#10067; What do the columns mean? <span class="cnt">click to expand</span></summary>
+      <div class="body">
+        <h3>&#127760; Multi-venue scanner</h3>
+        <ul>
+          <li><b>Asset</b> &mdash; the symbol; &#9888; marks pairs where no combination has &ge;$10k of 24h volume on both legs (thin book, size down). Below it, how many venues list it at all &mdash; a 2-venue spread is far more fragile than a 6-venue one.</li>
+          <li><b>Vari / Ethereal / Nado / Lighter / Lighter-RH / Aster / edgeX</b> &mdash; that venue's current annualised funding rate (APR), each normalised from its own publishing convention and interval.</li>
+          <li><b>Coloured cells</b> &mdash; the row's best pair: <b>red</b> border = short this leg (you receive funding), <b>green</b> = long this leg (you pay). Their difference is the spread.</li>
+          <li><b>Max size</b> &mdash; the leverage cap of the <b>narrower</b> leg, with the margin that leg needs below it. A venue capping at &le;5&times; is telling you its book is thin &mdash; and on a thin book the price gap moves further than the funding pays.</li>
+          <li><b>Type</b> &mdash; RWA / ALT / MAJOR. Funding behaves differently in each: RWAs settle on 8h intervals on Variational, alts mostly hourly elsewhere.</li>
+          <li>Everything else &mdash; spread, price gap, round-trip cost, break-even, 7-day history &mdash; is one click away in the deep dive, and ranked for you on <b>Best Pairs</b>.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
 </section>
 
 <!-- ══ PAIRS SCANNER · egy kereszt teljes nézete ══ -->
@@ -1730,6 +1773,7 @@ async function load(force){
   const st=d.state
   VLIVE=d.venues||{}
   renderApiStatus()
+  renderVtog()   // a halott tőzsde kapcsolója is halványodjon
   renderPxChg()
   // a nyitott/beállított pár görbéi — innen hívjuk, mert csak ez a payload tudja, mi az
   renderMeasBar(d)
@@ -2227,35 +2271,90 @@ function renderStrat(){
    +'</div>'
  }).join('')||'<div class="hint">No pair matches the filter.</div>'
 }
-function setMSort(m){mSort=m;delete SORT['mrows'];for(const x of['spread','tick'])document.getElementById('ms-'+x).classList.toggle('on',x===m);renderMulti()}
+// A legördülő és a fejléc-rendezés ugyanazt a táblát rendezné kétféleképpen, ezért
+// a legördülő választása törli a fejlécre kattintva beállított sorrendet.
+function setMSort(m){mSort=m;delete SORT['mrows'];renderMulti()}
 // A kold-start magyarázat csak addig kell, amíg tényleg várni kell rá — az első
 // sikeres szkennelés után eltűnik, a rendes intro-szöveg marad a helyén.
 function hideLoadgate(){const g=document.getElementById('introbox');if(g)g.style.display='none'}
+// ── MULTI-VENUE ─────────────────────────────────────────────────────────────
+// Saját lap, nem a dashboard alja. Ott 40 sorra volt vágva a ~700-ból, ami egy
+// mátrixnál nem rövidítés, hanem félrevezetés: pont az nem látszott, mennyi van.
+// Itt a szűrők döntik el, mi marad, és a sorszám ki is van írva a morzsasorban.
+//
+// A hét oszlop egyenként kikapcsolható. A választás localStorage-ban marad, mert
+// ez nem egy kattintásnyi dolog: aki Vari+Lightert kereskedik, annak a másik öt
+// oszlop hetekig csak hely.
+let MVIS=null
+try{const s=localStorage.getItem('dn_mvis');if(s)MVIS=new Set(JSON.parse(s).filter(k=>MVENUES.includes(k)))}catch{}
+if(!MVIS||MVIS.size<1)MVIS=new Set(MVENUES)
+const mvis=()=>MVENUES.filter(k=>MVIS.has(k))
+function toggleVenue(k){
+ // Egy oszlopnál kevesebbnek nincs értelme — egy üres mátrix nem állapot, hanem hiba.
+ if(MVIS.has(k)){if(MVIS.size<2)return;MVIS.delete(k)}else MVIS.add(k)
+ try{localStorage.setItem('dn_mvis',JSON.stringify([...MVIS]))}catch{}
+ // Az oszlopindexek elcsúsztak, tehát a fejléc-rendezés már másra mutatna.
+ delete SORT['mrows']
+ renderVtog();renderMulti()
+}
+function renderVtog(){
+ const el=document.getElementById('vtog');if(!el)return
+ el.innerHTML=MVENUES.map(k=>{
+  const be=MVIS.has(k),halott=VLIVE[k]&&VLIVE[k].live===false
+  const t=halott?(vNev(k)+' lists nothing with volume right now'):((be?'Hide':'Show')+' the '+vNev(k)+' column')
+  return '<button class="'+(be?'on':'')+(halott?' dead':'')+'" onclick="toggleVenue(\''+k+'\')" title="'+t+'">'
+   +vbadge(k,vNev(k))+'<span class="nm">'+vNev(k)+'</span><span class="cb">✓</span></button>'
+ }).join('')
+}
+let mQ=''
+function multiSearch(v){mQ=(v||'').trim().toUpperCase();renderMulti()}
+// Ugyanaz a lábméret két helyen áll: a dashboard sávjában és itt. Egy forrás
+// (`sleg`), a másik tükör — különben a két lapon más $ / nap jelenne meg.
+function syncLeg(el){
+ const v=el.value
+ for(const id of ['sleg','mleg']){const x=document.getElementById(id);if(x&&x!==el)x.value=v}
+ const f=document.getElementById('sleg');if(f)saveLeg(f)
+ renderMulti();renderDash();renderStrat();renderGapWatch()
+}
 function renderMulti(){
  if(!scanData)return
  hideLoadgate()
  const leg=+document.getElementById('sleg').value||3000
- // Spread szerint = hol a legnagyobb a két venue különbsége (tartós carry).
- // Tick szerint = hol fizet legtöbbet a következő Vari-pillanatkép (rövid, célzott fogás).
- // A kettő NEM ugyanaz: egy nagy Vari-ráta akkor is nagy ticket ad, ha a másik venue is
- // hasonlóan negatív és a spread emiatt kicsi — ezt a spread-rendezés elrejtette.
+ const VIS=mvis()
  let src=scanData.rows
  if(catFilterM!=='all')src=src.filter(r=>r.cat===catFilterM)
  // Az egyirány-szűrő a kereszt-táblákról jött át. Itt a rés a pár SAJÁT két lába közt
  // értendő, nem a Varihoz képest — a szabály viszont ugyanaz.
  if(csakEgyirM)src=src.filter(r=>r.aligned===true)
- if(mSort==='tick'){src=[...src].sort((a,b)=>{
+ if(mQ)src=src.filter(r=>r.sym.includes(mQ))
+ // Egy sor, aminek a bekapcsolt oszlopok közül egyikben sincs rátája, üresen állna.
+ src=src.filter(r=>VIS.some(k=>r.aprs&&r.aprs[k]!=null))
+ // Spread szerint = hol a legnagyobb a két venue különbsége (tartós carry).
+ // Tick szerint = hol fizet legtöbbet a következő Vari-pillanatkép (rövid, célzott fogás).
+ // A kettő NEM ugyanaz: egy nagy Vari-ráta akkor is nagy ticket ad, ha a másik venue is
+ // hasonlóan negatív és a spread emiatt kicsi — ezt a spread-rendezés elrejtette.
+ if(mSort==='tick')src=[...src].sort((a,b)=>{
    const ta=tickUsdOf(a,leg),tb=tickUsdOf(b,leg)
-   return (tb?tb.usd:-1)-(ta?ta.usd:-1)})}
- // Fejléc-rendezés, ha van: felülírja a Spread/Tick gombokat (azok viszont törlik,
- // lásd setMSort) — két egyidejű sorrend csak zavarna.
- const mk=(r)=>[r.sym,r.cat].concat(MVENUES.map(k=>r.aprs?r.aprs[k]:null)).concat([r.maxLev])
+   return (tb?tb.usd:-1)-(ta?ta.usd:-1)})
+ else if(mSort==='asset')src=[...src].sort((a,b)=>a.sym<b.sym?-1:a.sym>b.sym?1:0)
+ // Fejléc-rendezés, ha van: felülírja a legördülőt (az viszont törli, lásd setMSort) —
+ // két egyidejű sorrend csak zavarna.
+ const mk=(r)=>[r.sym,r.cat].concat(VIS.map(k=>r.aprs?r.aprs[k]:null)).concat([r.maxLev])
  src=applySort('mrows',src.map(r=>({r,k:mk(r)}))).map(x=>x.r)
- sortHead('#scantab-multi table','mrows',renderMulti)
- document.getElementById('mrows').innerHTML=src.slice(0,40).map(r=>{
-  return '<tr style="cursor:pointer" onclick="diveInto(\''+r.sym+'\')"><td>'+symCell(r)+'</td><td>'+catBadge(r.cat)+'</td>'
-  +MVENUES.map(k=>venueCell(r,k)).join('')+levCell(r,leg)+'</tr>'
- }).join('')
+ // A fejléc a LÁTHATÓ oszlopokból épül, ezért kliensoldalon — a szerver VTH-sablonja
+ // fix hét oszlopot adna.
+ document.getElementById('mhead').innerHTML='<th>Asset</th><th>Type</th>'
+  +VIS.map(k=>'<th class="vh'+(k==='RhLighter'?' vh-rh':'')+'"><span class="vhw">'
+    +vbadge(k,vNev(k))+'<span>'+vNev(k)+'</span></span></th>').join('')
+  +'<th>Max size</th>'
+ sortHead('#pg-multi table','mrows',renderMulti)
+ document.getElementById('mrows').innerHTML=src.map(r=>
+  '<tr style="cursor:pointer" onclick="diveInto(\''+r.sym+'\')"><td>'+symCell(r)+'</td><td>'+catBadge(r.cat)+'</td>'
+  +VIS.map(k=>venueCell(r,k)).join('')+levCell(r,leg)+'</tr>').join('')
+ const c=document.getElementById('mcount')
+ if(c)c.textContent=src.length===scanData.rows.length
+  ? (src.length+' assets · '+VIS.length+' of '+MVENUES.length+' venues')
+  : (src.length+' of '+scanData.rows.length+' assets · '+VIS.length+' of '+MVENUES.length+' venues')
 }
 // Mit fizet a KÖVETKEZŐ Variational-snapshot ezen az eszközön, és melyik oldalnak.
 // Külön szám a spreadtől: a Vari pillanatkép-alapon a TELJES intervallumot kifizeti annak,
@@ -2295,7 +2394,7 @@ let curScanTab='multi'
 let curPage='dash'
 function showPage(p){
   curPage=p
-  for(const x of ['dash','pairs','strat','gap','track','hist']){
+  for(const x of ['dash','multi','pairs','strat','gap','track','hist']){
     document.getElementById('pg-'+x).style.display=(x===p)?'block':'none'
     document.getElementById('nav-'+x).classList.toggle('on',x===p)
   }
@@ -2304,6 +2403,7 @@ function showPage(p){
   if(p==='strat')renderStrat()
   if(p==='gap')renderGapWatch()
   if(p==='pairs')renderPairs()
+  if(p==='multi'){renderVtog();renderMulti()}
   if(p==='dash')renderDash()
   if(p==='track')pollGap()   // ne kelljen három másodpercet várni az első értékre
   applyGate(p)
@@ -2583,14 +2683,19 @@ function renderDash(){
  keresztek.sort((a,b)=>kulcs(b)-kulcs(a))
  // A ★ az első négyre megy, és nem dísz: a rangsor élén álló négy kereszt az,
  // amin a kiválasztott mérce szerint egyáltalán van mit nézni.
- document.getElementById('topvrows').innerHTML=keresztek.length?keresztek.map((s,i)=>{
+ // Csak az első öt. A dashboard a nap állását mutatja, nem a teljes rangsort: a
+ // hatodik kereszt már nem változtat döntésen, viszont elnyomja alatta a panelt.
+ // A rendező legördülő miatt az „első öt” nem fix lista — $ / nap, spread,
+ // lehetőség-szám vagy egyirány szerint más öt kerül elő.
+ const TOPN=5
+ document.getElementById('topvrows').innerHTML=keresztek.length?keresztek.slice(0,TOPN).map((s,i)=>{
   const kat=s.jump?("jumpCross('"+s.jump+"')"):("jumpPair('"+s.bp.short+"','"+s.bp.long+"')")
   // A nyíl IRÁNYT mond: a bal oldali lábat shortolod, a jobbat longolod. Ezért a sor
   // a legjobb pár saját irányát viseli, nem a mátrix (A,B) sorrendjét — és így a
   // spread mellől eltűnik az előjel: ami ott áll, az a megkapható különbség.
   const S=s.bp.short,L=s.bp.long
   return '<tr onclick="'+kat+'" title="'+(s.jump?'Open this cross in the Pairs Scanner':'Not a Variational cross — opens the deep dive on '+s.bp.sym)+'">'
-  +'<td class="rk">'+(i+1)+'</td><td class="st">'+(i<4?'★':'')+'</td>'
+  +'<td class="rk">'+(i+1)+'</td><td class="st">'+(i<3?'★':'')+'</td>'
   +'<td class="pn"><span class="xw">'+vbadge(S,NEV[S]||S)+vNev(S)
    +'<span class="ar">→</span>'+vbadge(L,NEV[L]||L)+vNev(L)+'</span></td>'
   +'<td class="mono '+(s.n?'':'d')+'">'+s.n+'</td>'
@@ -2788,6 +2893,7 @@ async function loadScan(){
   scanData=d
   document.getElementById('scancard').style.display=""
   document.getElementById('setbar').style.display=""
+  renderVtog()
   renderDash();renderMulti();renderStrat();renderPairs();renderGapWatch()
   // A Beállítások a /api/data-ból renderelődik, ami HAMARABB megjön, mint a
   // /api/scan — ezért az eszközlista első renderkor még üres. Itt töltjük fel.
@@ -3380,6 +3486,9 @@ function restoreLegs(){
     let v=null;try{v=localStorage.getItem('dn_leg_'+id)}catch{}
     if(v!=null&&v!==''&&+v>0)el.value=v
   }
+  // A Multi-Venue lábmérete a dashboardét tükrözi: egy tárolt érték, két mező.
+  const a=document.getElementById('sleg'),b=document.getElementById('mleg')
+  if(a&&b)b.value=a.value
 }
 restoreLegs()
 // a napló-típus is ott marad, ahol utoljára hagytad
@@ -3422,8 +3531,10 @@ function planRefresh(){
 // most nem történik semmi” ugyanúgy néz ki.
 setInterval(()=>{
  const el=document.getElementById('cdown');if(!el)return
- if(!REFRESH_S){el.textContent='paused';return}
- el.textContent='next scan '+Math.max(0,Math.round((_next-Date.now())/1000))+'s'
+ const m=document.getElementById('mcdown')
+ const txt=REFRESH_S?('next scan '+Math.max(0,Math.round((_next-Date.now())/1000))+'s'):'paused'
+ el.textContent=txt
+ if(m)m.textContent=txt
 },1000)
 try{
  const mentett=localStorage.getItem('dn_refresh')
