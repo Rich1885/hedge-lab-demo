@@ -915,6 +915,40 @@ body.sidemini .sblk,body.sidemini .sfoot{display:none}
   body.sidemini .snavi{flex-direction:column;justify-content:center;gap:5px;padding:8px 2px}
 }
 
+/* ── Position: morzsasor és a kereszt-visszalink ── */
+#tcrumb .tcross{margin-left:auto;white-space:nowrap}
+#tcrumb .cur b{color:var(--tx)}
+
+/* ── Konfiguráció: fülek és gyorsgombok ─────────────────────────────────────
+   Nyolc mező egy oszlopban azt sugallta, hogy mind ugyanolyan gyakori döntés.
+   Nem az: a keresztet hetente többször állítod, a tárcacímet egyszer. */
+/* A #settings két oszlopos rács. A fülsáv és a fülpanel a TELJES szélességet kapja,
+   és a kétoszlopos elrendezés egy szinttel beljebb, a panelre költözik — különben a
+   fülsáv lett volna a bal oszlop, a mezők meg a jobb. */
+#settings>.cfbar,#settings>.cftab{grid-column:1/-1}
+.cftab{display:grid;grid-template-columns:1fr 1fr;gap:20px 28px;align-items:start}
+@media(max-width:900px){.cftab{grid-template-columns:1fr}}
+.cfbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 2px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.cfchips{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.cfchips .filt{padding:5px 11px;font-size:11px}
+.cfnote{flex:1 1 100%;font-size:11.5px;line-height:1.6;color:var(--faint);margin-top:4px}
+.cfnote b{color:var(--dim)}
+#settings textarea{width:100%;background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-sm);
+ color:var(--tx);font:500 12.5px/1.6 'Inter',system-ui,sans-serif;padding:11px 12px;resize:vertical}
+#settings textarea:focus{outline:none;border-color:var(--blue)}
+.field textarea+label{top:9px;transform:none}
+
+/* ── Expected hold: a rés-sáv felül, a nettóban benne a költség ──────────────
+   A sorrend állítás: ami felül van, az a kérdés, ami alul, az a válasz. Eddig
+   fordítva volt — a zöld nettó fölött, a rés-sáv a leghalványabb sorban alatta. */
+.ehold tr.ehsep td{padding:0;height:9px;border-top:1px solid var(--line)}
+.ehold tr.sub td{padding:1px 0 7px;font-size:11px;color:var(--faint);border-top:0;text-align:left}
+.ehold td.b{font-size:14.5px}
+.ehverdict{margin-top:11px;font-size:11.5px;line-height:1.6;border-radius:var(--r-sm);
+ padding:9px 12px;border:1px solid}
+.ehverdict.bad{background:var(--rbg);border-color:#f8717140;color:#fca5a5}
+.ehverdict.ok{background:var(--gbg);border-color:#4ade8033;color:#86efac}
+
 </style></head><body>
 <div class="side">
   <div class="sbrand"><span class="live"></span><span class="bn">HEDGE<b>LAB</b></span>
@@ -1150,6 +1184,14 @@ body.sidemini .sblk,body.sidemini .sfoot{display:none}
 
 <!-- ══ TRACKER · the open (or planned) position ══ -->
 <section id="pg-track" style="display:none">
+<!-- Morzsasor: MELYIK eszköz, MELYIK kereszt. A lap eddig zsákutca volt — a
+     kereszt neve csak a konfig-összefoglalóban szerepelt, és nem vezetett vissza
+     oda, ahol a párt meg lehet nézni. -->
+<div class="crumb" id="tcrumb" style="display:none">
+  <span class="lbl">Position</span><span class="sep">&rsaquo;</span>
+  <span class="cur" id="tcrumbcur">&mdash;</span>
+  <button class="filt tcross" id="tcross" style="display:none" onclick="crossToPairs()">View on Pairs Scanner &rarr;</button>
+</div>
 <div id="alerts"></div>
 <div id="livebox"></div>
 <!-- ── POSITION-HERO ──────────────────────────────────────────────────────────
@@ -1163,8 +1205,11 @@ body.sidemini .sblk,body.sidemini .sfoot{display:none}
   <div class="hhead" id="h_head"></div>
   <div class="hbig" id="h_big"></div>
   <div class="hsub" id="h_sub"></div>
-  <div class="legs" id="h_legs"></div>
+  <!-- Az ÁR-csík a lábkártyák FÖLÖTT: a két ár, az élő rés és az ítélete az
+       állapot, a lábkártyák pedig a részletezés. Fordítva a rés — a kör valódi
+       szűk keresztmetszete — a lap közepére temetődött. -->
   <div class="gaps" id="gapstrip" style="display:none"></div>
+  <div class="legs" id="h_legs"></div>
   <div class="hstats" id="h_stats"></div>
   <div class="hnoterow"><div class="hnote" id="h_note"></div><div id="btns"></div></div>
 </div>
@@ -1794,9 +1839,31 @@ async function alertTest(btn){
  }catch(e){msg.className='alnote r';msg.textContent='Could not reach the server.'}
  btn.disabled=false
 }
+// ── konfig-fülek ────────────────────────────────────────────────────────────
+// Melyik fül volt nyitva, az a renderek között is megmarad: a /api/data 90
+// másodpercenként újrarajzolja az űrlapot, és enélkül minden frissítés
+// visszaugrana a Basicre — akár gépelés közben is.
+let _cfTab='basic'
+function cfTab(k){
+ _cfTab=k
+ for(const t of ['basic','advanced','alerts','notes']){
+  const p=document.getElementById('cft-'+t),b=document.getElementById('cfb-'+t)
+  if(p)p.style.display=(t===k)?'':'none'
+  if(b)b.classList.toggle('on',t===k)
+ }
+}
+// Gyorsgomb: a mező MÖGÖTT ugyanaz az input marad, a chip csak beleír. Így a mentés
+// egyetlen helyről olvas, és egy kézzel beírt tetszőleges érték sem tűnik el.
+function cfChip(el){
+ const t=document.getElementById(el.dataset.for);if(!t)return
+ t.value=el.dataset.v
+ t.dispatchEvent(new Event('input',{bubbles:true}))
+ for(const s of el.parentElement.children)s.classList.toggle('on',s===el)
+}
 async function saveSettings(){
  const b={capital_v:+document.getElementById("cv").value,capital_m:+document.getElementById("cm").value,margin_per_leg:+document.getElementById("ml").value,leverage:+document.getElementById("lv").value,mode:document.getElementById("md").value,same_asset:document.getElementById("sa").value,same_va:document.getElementById("sva").value,same_vb:document.getElementById("svb").value}
  b.wallet=(document.getElementById("wal")?document.getElementById("wal").value:"").trim()
+ const nt=document.getElementById("cfnote");if(nt)b.note=nt.value
  const al=alertRead();if(al)b.alerts=al
  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});load(true)}
 
@@ -1824,7 +1891,8 @@ async function load(force){
   const hasOpen=isSame?d.same.open:(st.active_config&&st.active_config!=="SAME")
   if(d.alerts.length===0&&hasOpen)ah='<div class="alert ok">✓ '+(isSame?("The "+d.same.asset+" cross is live (SHORT "+d.same.opened_short_on+"); drift and spread are fine. Nothing to do."):("A nyitott konfigod ["+st.active_config+"] az optimal, a divergencia rendben. Nincs teendő."))+'</div>'
   for(const a of d.alerts)ah+='<div class="alert '+a.level+'">⚠ '+a.text+'</div>'
-  if(!hasOpen)ah+='<div class="alert yellow">No position recorded — press Open position once both legs are filled.</div>'
+  // A „nincs rögzítve" üzenet KORÁBBAN kétszer állt a lapon: itt egy sárga sávban
+  // és a hero alján, a gomb mellett. Ott a helye — ott van mellette a gomb is.
   // Halott venue a beállított kereszten. A szkennert ez nem érinti (ott a volumen-
   // szűrő kiveszi), de a panel eddig úgy mutatta a lábat, mintha nyitható lenne.
   const parVenues=(d.mode==="pair")?["Variational","Ethereal"]:[st.same_va||"Variational",st.same_vb||"Aster"]
@@ -1946,15 +2014,31 @@ async function load(force){
   // Csoportosítva, nem egy nyolcmezős webform: a tőke, a stratégia és a venue-k
   // három külön döntés, és a user is így gondolkodik róluk.
   const grp=(cim,mezok)=>'<div class="sgroup"><div class="t-label">'+cim+'</div><div class="sfields">'+mezok+'</div></div>'
+  // Négy fül egy nyolcmezős űrlap helyett. A döntések nem egyformán gyakoriak: a
+  // keresztet és az eszközt hetente többször állítod át, a tárcacímet egyszer.
+  // Egymás alá téve a ritkák ugyanannyi helyet és figyelmet kaptak, mint a gyakoriak.
+  const chips=(cel,ertekek,suffix)=>'<div class="cfchips">'+ertekek.map(v=>
+    '<button class="filt" data-for="'+cel+'" data-v="'+v+'" onclick="cfChip(this)">'+v+(suffix||'')+'</button>').join('')+'</div>'
+  const tab=(k,c)=>'<div class="cftab" id="cft-'+k+'">'+c+'</div>'
+  const FULEK=[['basic','Basic'],['advanced','Advanced'],['alerts','Alerts'],['notes','Notes']]
   document.getElementById("settings").innerHTML=
-   grp('Capital',fi("cv","Variational capital $",st.capital_v)+fi("cm","Ethereal capital $",st.capital_m)+fi("ml","Margin per leg $",st.margin_per_leg))
-   +grp('Strategy',fi("lv","Leverage",st.leverage)
-     +fs("md","Mode",'<option value="pair"'+(d.mode==="pair"?" selected":"")+'>pair (BTC/ETH cross)</option><option value="same"'+(d.mode==="same"?" selected":"")+'>same-asset (1 symbol, 2 venues)</option>')
-     +fs("sa","Same-asset symbol",assetOpts(st.same_va||"Variational",st.same_vb||"Ethereal",d.same?d.same.asset:(st.same_asset||"ENA"))))
-   +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"),' onchange="refreshAssetSel()"')+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal"),' onchange="refreshAssetSel()"'))
-   +grp('Wallet','<div class="field" style="flex:1;min-width:240px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>')
-   +alertBlock(st.alerts||{})
+   '<div class="cfbar">'+FULEK.map(f=>'<button class="filt" id="cfb-'+f[0]+'" onclick="cfTab(&quot;'+f[0]+'&quot;)">'+f[1]+'</button>').join('')+'</div>'
+   +tab('basic',
+     grp('Strategy',fs("md","Mode",'<option value="pair"'+(d.mode==="pair"?" selected":"")+'>pair (BTC/ETH cross)</option><option value="same"'+(d.mode==="same"?" selected":"")+'>same-asset (1 symbol, 2 venues)</option>')
+       +fs("sa","Same-asset symbol",assetOpts(st.same_va||"Variational",st.same_vb||"Ethereal",d.same?d.same.asset:(st.same_asset||"ENA"))))
+     +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"),' onchange="refreshAssetSel()"')+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal"),' onchange="refreshAssetSel()"'))
+     +grp('Leverage',fi("lv","Leverage",st.leverage)+chips('lv',[1,2,3,5,10],'×')
+       +'<div class="cfnote">Both legs carry the same notional and the same leverage &mdash; that is what keeps the round delta-neutral. A higher cap is permission, not saved margin: the same safety needs roughly the same collateral at 3&times; and at 10&times;.</div>'))
+   +tab('advanced',
+     grp('Capital',fi("cv","Variational capital $",st.capital_v)+fi("cm","Ethereal capital $",st.capital_m))
+     +grp('Margin per leg',fi("ml","Margin per leg $",st.margin_per_leg)+chips('ml',[250,500,1000,2000]))
+     +grp('Wallet','<div class="field" style="flex:1;min-width:240px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>'))
+   +tab('alerts',alertBlock(st.alerts||{}))
+   +tab('notes',
+     grp('Notes','<div class="field" style="flex:1;min-width:260px"><textarea id="cfnote" rows="5" placeholder=" ">'+String(st.note||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</textarea><label>Notes on this cross</label></div>')
+     +'<div class="cfnote">Why you took this cross, what you are waiting for, what went wrong last time. It is saved with the configuration, so it survives a reload &mdash; the round&rsquo;s <i>result</i> still belongs in <b>History</b>.</div>')
    +'<button class="accent" onclick="saveSettings()">Save</button>'
+  cfTab(_cfTab)
   // Az összefoglaló: ugyanaz négy számban, amit az űrlap nyolc mezőben mond.
   // Becsukva ez marad látható, nyitva pedig fölösleges görgetés nélkül ellenőrizhető.
   const cs=document.getElementById("cfgsum")
@@ -2951,6 +3035,11 @@ async function loadScan(){
  try{
   const d=await fetch('/api/scan').then(r=>r.json())
   scanData=d
+  // A mérési panel a /api/data-ból rajzolódik, ami HAMARABB megjön, mint a /api/scan —
+  // a kör-költség és a nettó viszont a szken soraiból jön. Enélkül a tábla első
+  // kirajzoláskor költség és nettó nélkül állt, és csak a következő 90 mp-es
+  // körben egészült ki. Olcsó: a sorozat cache-elve van, új lekérés nem indul.
+  if(typeof MEASD!=='undefined'&&MEASD)renderMeasBar(MEASD)
   document.getElementById('scancard').style.display=""
   document.getElementById('setbar').style.display=""
   renderVtog()
@@ -3086,13 +3175,49 @@ function expectedHold(d,gsAll,ts){
  const H=[4,8,12]
  const sor=(cim,f,cls)=>'<tr><td>'+cim+'</td>'+H.map(h=>'<td class="mono '+(cls||'')+'">'+f(h)+'</td>').join('')+'</tr>'
  const fund=(h)=>leg*alap/8760*h
+ const netto=(h)=>fund(h)-(koltseg||0)
+ const swing=(h)=>{const g=gapMove(gsAll,ts,h);return g==null?null:leg*g}
+ const dol=(x)=>(x>=0?'+$':'−$')+Math.abs(x).toFixed(2)
+
+ // A két láb MOSTANI rátája, dollárban. Külön sor, mert a vetítés a 7 napos
+ // átlagból megy — a kettőt egy oszlopba keverve az összeadás nem jönne ki, és a
+ // „miért nem egyezik” kérdés drágább, mint amennyit a közös tábla ér.
+ const napi=(apr)=>leg*Math.abs(apr)/365
+ const labsor=(()=>{
+  if(sm.short_apr==null||sm.long_apr==null)return ''
+  const sVen=sm.open?sm.opened_short_on:sm.short_on
+  const lVen=sm.open?(sm.opened_short_on===sm.va_name?sm.vb_name:sm.va_name):sm.long_on
+  // Ugyanaz a szabály, mint a lábkártyákon: a short kapja a pozitív rátát.
+  const sKap=sm.short_apr>0, lKap=sm.long_apr<0
+  // `ven` már a kiírandó név (Variational, Lighter-RH); a VKEY-en átvezetve „Vari” lenne.
+  const egy=(ven,apr,kap)=>'<span class="'+(kap?'g':'r')+'">'+(kap?'+':'−')+'$'+napi(apr).toFixed(2)+'</span> '
+   +'<span class="d">'+ven+(kap?' receives':' pays')+'</span>'
+  return '<tr class="sub"><td colspan="4">At the current rate, per day: '
+   +egy(sVen,sm.short_apr,sKap)+' <span class="d">·</span> '+egy(lVen,sm.long_apr,lKap)+'</td></tr>'
+ })()
+
+ // ── az ítélet ───────────────────────────────────────────────────────────────
+ // A rés-sáv NEM levonás, hanem a kockázat mérete. Eddig a tábla legalsó, leghalványabb
+ // sora volt, a zöld nettó alatt — pedig ha nagyobb, mint a nettó, akkor ez az egyetlen
+ // szám, ami számít, és a zöld nettó félrevezet. Ezért került felülre, és ezért van
+ // kimondva szavakban is.
+ const s12=swing(12),n12=netto(12)
+ let itelet=''
+ if(koltseg==null)itelet=''
+ else if(n12<=0)itelet='<div class="ehverdict bad">A full round costs $'+koltseg.toFixed(2)+' to open and close. At this rate twelve hours of funding does not cover it — the net is negative before the gap moves at all.</div>'
+ else if(s12!=null&&s12>=Math.abs(n12))itelet='<div class="ehverdict bad">The typical 12h gap swing ('+'±$'+s12.toFixed(2)+') is '+(s12/Math.abs(n12)).toFixed(1)+'× the net. The price gap decides this round, not the funding — which is another way of saying it is not playable however you stand.</div>'
+ else if(s12!=null)itelet='<div class="ehverdict ok">The net clears the typical 12h gap swing ('+'±$'+s12.toFixed(2)+'). That is the condition to look for — it does not make the swing go away.</div>'
+
  return '<div class="ehold"><table><thead><tr><th>Expected hold</th>'
   +H.map(h=>'<th>'+h+'H</th>').join('')+'</tr></thead><tbody>'
+  +sor('<b>gap swing</b> <span class="d">(typical)</span>',(h)=>{const g=swing(h);return g==null?'—':'±$'+g.toFixed(2)},'y b')
+  +'<tr class="ehsep"><td colspan="4"></td></tr>'
   +sor('funding <span class="d">('+forras+')</span>',(h)=>'+$'+fund(h).toFixed(2),'g')
-  +(koltseg!=null?sor('round-trip cost',()=>'−$'+koltseg.toFixed(2),'r'):'')
-  +(koltseg!=null?sor('<b>net</b>',(h)=>{const n=fund(h)-koltseg;return (n>=0?'+$':'−$')+Math.abs(n).toFixed(2)},'b'):'')
-  +sor('gap swing <span class="d">(typical)</span>',(h)=>{const g=gapMove(gsAll,ts,h);return g==null?'—':'±$'+(leg*g).toFixed(2)},'y')
-  +'</tbody></table><div class="hint">The funding is projected from the '+forras+', not the current tick — a closing rate would have promised $14.16 on a round that actually paid $8.68. <b>Gap swing</b> is not a deduction but the size of the risk: the median move of the price gap over that many hours. When it dwarfs the net, the pair is not playable however you stand.</div></div>'
+  +labsor
+  +(koltseg!=null?sor('round-trip cost <span class="d">(both legs, taker)</span>',()=>'−$'+koltseg.toFixed(2),'r'):'')
+  +(koltseg!=null?sor('<b>net</b> <span class="d">(after cost)</span>',(h)=>{const n=netto(h);return dol(n)},'b'):'')
+  +'</tbody></table>'+itelet
+  +'<div class="hint">The funding is projected from the '+forras+', not the current tick — a closing rate would have promised $14.16 on a round that actually paid $8.68. <b>Net</b> already has the round trip taken out of it, so it is what the round leaves you if the gap does not move. <b>Gap swing</b> is not a deduction but the size of the risk: the median move of the price gap over that many hours.</div></div>'
 }
 function closeDive(){document.getElementById('diveOverlay').style.display='none';document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDive()})
@@ -3276,6 +3401,24 @@ async function pollGap(){
  // ahelyett hogy az utolsó jó érték élőnek látszana.
  renderGapStrip(GAPLAST)
 }
+// A Position morzsasora. A kereszt NEVE eddig csak a konfig-összefoglalóban volt,
+// és semmi nem vezetett vissza arra a lapra, ahol a párt tényleg meg lehet nézni.
+// A gomb csak akkor jelenik meg, ha a kereszt tényleg nyitható a Pairs Scanneren:
+// ott csak Vari-keresztek vannak, egy Aster↔Lighter párra nincs hova ugrani.
+let _trackJump=null
+function setTrackCrumb(sm){
+ const c=document.getElementById('tcrumb'),cur=document.getElementById('tcrumbcur'),b=document.getElementById('tcross')
+ if(!c||!cur)return
+ c.style.display=''
+ const va=sm.va_name||'Variational',vb=sm.vb_name||'Aster'
+ // A payload MÁR a kiírandó nevet adja (Variational, Lighter-RH) — a VKEY-en át
+ // visszafordítva „Vari” lenne, ami sehol máshol nem így szerepel a felületen.
+ cur.innerHTML='<b>'+sm.asset+'</b> <span class="d">·</span> '+va+' ↔ '+vb
+ const ka=VKEY(va),kb=VKEY(vb)
+ _trackJump=(ka==='Vari'&&HEATJUMP[kb])?HEATJUMP[kb]:(kb==='Vari'&&HEATJUMP[ka])?HEATJUMP[ka]:null
+ if(b)b.style.display=_trackJump?'':'none'
+}
+function crossToPairs(){if(_trackJump)jumpCross(_trackJump)}
 function renderHero(d,sm,st){
  const el=document.getElementById('hero');if(!el)return
  el.style.display=''
@@ -3302,7 +3445,13 @@ function renderHero(d,sm,st){
   // hoz. Minden más alattuk magyaráz — korábban a spread a statisztika-csíkban ült,
   // egy súlyon a driftel, és a szem nem tudta, hova nézzen először.
   el2('h_big',big('Total spread',pct(Math.abs(sm.diff),1),Math.abs(sm.diff)>=0.3?'g':Math.abs(sm.diff)>=0.1?'y':'')
-   +big('Net funding','<span class="'+(sm.usd_day>=0?'g':'r')+'">'+usd(sm.usd_day)+'</span><span style="font-size:15px;color:var(--dim);font-weight:600"> /day</span>'))
+   +big('Net funding','<span class="'+(sm.usd_day>=0?'g':'r')+'">'+usd(sm.usd_day)+'</span><span style="font-size:15px;color:var(--dim);font-weight:600"> /day</span>')
+   // A likvidációs táv felkerült a fejlécbe. Lentebb a sávban eddig is ott volt, de
+   // ez az a szám, ami eldönti, EGYÁLTALÁN mekkorát szabad nyitni — a spread és a
+   // carry mellett a helye, nem három panellel lejjebb.
+   +(sm.d_liq!=null?big('Liq. distance',pct(sm.d_liq,1),sm.used==null?'':sm.used<0.5?'g':sm.used<0.75?'y':'r'):''))
+  // Morzsasor: az eszköz és a kereszt, plusz az út vissza a Pairs Scannerre.
+  setTrackCrumb(sm)
   // A két láb saját kártyán. Az adat mind a payload tick-blokkjából jön — ugyanaz,
   // amiből a lenti visszaszámláló-panel dolgozik, tehát nincs második igazság.
   const sVen=sm.open?sm.opened_short_on:sm.short_on
