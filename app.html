@@ -926,17 +926,23 @@ body.sidemini .sblk,body.sidemini .sfoot{display:none}
    és a kétoszlopos elrendezés egy szinttel beljebb, a panelre költözik — különben a
    fülsáv lett volna a bal oszlop, a mezők meg a jobb. */
 #settings>.cfbar,#settings>.cftab{grid-column:1/-1}
-.cftab{display:grid;grid-template-columns:1fr 1fr;gap:20px 28px;align-items:start}
-@media(max-width:900px){.cftab{grid-template-columns:1fr}}
+/* EGY oszlop: minden csoport a teljes szélességet kapja, és a mezők a .sfields
+   flex-ében rendeződnek sorokba. Két oszlopban a venue-k és a tőke egymás mellé
+   szorultak, és a logós mezőkön már nem fért ki a felirat. */
+.cftab{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
 .cfbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 2px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .cfchips{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .cfchips .filt{padding:5px 11px;font-size:11px}
 .cfnote{flex:1 1 100%;font-size:11.5px;line-height:1.6;color:var(--faint);margin-top:4px}
 .cfnote b{color:var(--dim)}
-#settings textarea{width:100%;background:var(--card2);border:1px solid var(--line2);border-radius:var(--r-sm);
- color:var(--tx);font:500 12.5px/1.6 'Inter',system-ui,sans-serif;padding:11px 12px;resize:vertical}
-#settings textarea:focus{outline:none;border-color:var(--blue)}
-.field textarea+label{top:9px;transform:none}
+/* Ikon a mezőben: a vezérlőn BELÜL, balra, az ÉRTÉK vonalában — a lebegő felirat
+   fölötte marad, ezért a felirat is beljebb kezdődik. */
+.field.hasico>select,.field.hasico>input{padding-left:39px}
+.field.hasico>label{left:39px;max-width:calc(100% - 49px)}
+.field .fico{position:absolute;left:12px;bottom:8px;width:19px;height:19px;border-radius:50%;
+ pointer-events:none;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.field .fico img{width:100%;height:100%;object-fit:cover;display:block}
+.field .fico span{font:800 8.5px/1 'Inter',system-ui,sans-serif;color:#140c2b;letter-spacing:-.2px}
 
 /* ── Expected hold: a rés-sáv felül, a nettóban benne a költség ──────────────
    A sorrend állítás: ami felül van, az a kérdés, ami alul, az a válasz. Eddig
@@ -1843,10 +1849,10 @@ async function alertTest(btn){
 // Melyik fül volt nyitva, az a renderek között is megmarad: a /api/data 90
 // másodpercenként újrarajzolja az űrlapot, és enélkül minden frissítés
 // visszaugrana a Basicre — akár gépelés közben is.
-let _cfTab='basic'
+let _cfTab='cfg'
 function cfTab(k){
  _cfTab=k
- for(const t of ['basic','advanced','alerts','notes']){
+ for(const t of ['cfg','alerts']){
   const p=document.getElementById('cft-'+t),b=document.getElementById('cfb-'+t)
   if(p)p.style.display=(t===k)?'':'none'
   if(b)b.classList.toggle('on',t===k)
@@ -1854,6 +1860,25 @@ function cfTab(k){
 }
 // Gyorsgomb: a mező MÖGÖTT ugyanaz az input marad, a chip csak beleír. Így a mentés
 // egyetlen helyről olvas, és egy kézzel beírt tetszőleges érték sem tűnik el.
+// A kiválasztott érték ikonja a mezőben. A natív <select> nem tud képet tenni az
+// opciókba, ezért a BECSUKOTT állapotot ikonozzuk — azt nézed az idő nagy részében.
+// Az eszköznek nincs igazi logónk, ezért ugyanaz a monogram-korong, mint a
+// szkenner-táblán: ugyanabból a szimbólumból ugyanaz a szín, tehát felismerhető.
+function syncFieldIcons(){
+ for(const id of ['sva','svb']){
+  const sel=document.getElementById(id),box=document.getElementById('ico_'+id)
+  if(!sel||!box)continue
+  const k=VKEY(sel.value)
+  box.innerHTML=VLOGO[k]?'<img src="'+VLOGO[k]+'" alt="">':'<span>'+String(sel.value||'?').charAt(0)+'</span>'
+  box.style.background=VLOGO[k]?'transparent':'var(--elev)'
+ }
+ const a=document.getElementById('sa'),ab=document.getElementById('ico_sa')
+ if(a&&ab){
+  const sym=(a.value||'?').toUpperCase()
+  ab.innerHTML='<span>'+sym.slice(0,2)+'</span>'
+  ab.style.background='hsl('+symHue(sym)+' 62% 62%)'
+ }
+}
 function cfChip(el){
  const t=document.getElementById(el.dataset.for);if(!t)return
  t.value=el.dataset.v
@@ -1863,7 +1888,6 @@ function cfChip(el){
 async function saveSettings(){
  const b={capital_v:+document.getElementById("cv").value,capital_m:+document.getElementById("cm").value,margin_per_leg:+document.getElementById("ml").value,leverage:+document.getElementById("lv").value,mode:document.getElementById("md").value,same_asset:document.getElementById("sa").value,same_va:document.getElementById("sva").value,same_vb:document.getElementById("svb").value}
  b.wallet=(document.getElementById("wal")?document.getElementById("wal").value:"").trim()
- const nt=document.getElementById("cfnote");if(nt)b.note=nt.value
  const al=alertRead();if(al)b.alerts=al
  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});load(true)}
 
@@ -2014,31 +2038,44 @@ async function load(force){
   // Csoportosítva, nem egy nyolcmezős webform: a tőke, a stratégia és a venue-k
   // három külön döntés, és a user is így gondolkodik róluk.
   const grp=(cim,mezok)=>'<div class="sgroup"><div class="t-label">'+cim+'</div><div class="sfields">'+mezok+'</div></div>'
-  // Négy fül egy nyolcmezős űrlap helyett. A döntések nem egyformán gyakoriak: a
-  // keresztet és az eszközt hetente többször állítod át, a tárcacímet egyszer.
-  // Egymás alá téve a ritkák ugyanannyi helyet és figyelmet kaptak, mint a gyakoriak.
+  // KÉT fül, nem négy. A „basic / advanced” szétvágás azt ígérte, hogy a második
+  // felében ritkább vagy veszélyesebb dolgok vannak — nem volt igaz, csak egy
+  // kattintással messzebb került a fedezet és a tárca. Minden beállítás egy lapon
+  // van; a riasztás marad külön, mert az nem a kereszt beállítása, hanem egy
+  // csatorna, és négy kapcsolónyi leírást visz.
   const chips=(cel,ertekek,suffix)=>'<div class="cfchips">'+ertekek.map(v=>
     '<button class="filt" data-for="'+cel+'" data-v="'+v+'" onclick="cfChip(this)">'+v+(suffix||'')+'</button>').join('')+'</div>'
   const tab=(k,c)=>'<div class="cftab" id="cft-'+k+'">'+c+'</div>'
-  const FULEK=[['basic','Basic'],['advanced','Advanced'],['alerts','Alerts'],['notes','Notes']]
+  // Ikonos mező: a logó a vezérlőn BELÜL ül, balra. A natív <select> nem tud képet
+  // rajzolni az opciókba, ezért a nyitott lista továbbra is szöveg — de a becsukott
+  // állapot, amit az idő 99%-ában nézel, megkapja a logót. Hét venue-név közül
+  // kiszúrni a jót sokkal gyorsabb így.
+  const ico=(id)=>'<span class="fico" id="ico_'+id+'"></span>'
+  const FULEK=[['cfg','Configuration'],['alerts','Alerts']]
+  const vaNev=st.same_va||'Variational',vbNev=st.same_vb||'Ethereal'
   document.getElementById("settings").innerHTML=
    '<div class="cfbar">'+FULEK.map(f=>'<button class="filt" id="cfb-'+f[0]+'" onclick="cfTab(&quot;'+f[0]+'&quot;)">'+f[1]+'</button>').join('')+'</div>'
-   +tab('basic',
-     grp('Strategy',fs("md","Mode",'<option value="pair"'+(d.mode==="pair"?" selected":"")+'>pair (BTC/ETH cross)</option><option value="same"'+(d.mode==="same"?" selected":"")+'>same-asset (1 symbol, 2 venues)</option>')
-       +fs("sa","Same-asset symbol",assetOpts(st.same_va||"Variational",st.same_vb||"Ethereal",d.same?d.same.asset:(st.same_asset||"ENA"))))
-     +grp('Venues',fs("sva","Cross venue A",vopt(st.same_va||"Variational"),' onchange="refreshAssetSel()"')+fs("svb","Cross venue B",vopt(st.same_vb||"Ethereal"),' onchange="refreshAssetSel()"'))
-     +grp('Leverage',fi("lv","Leverage",st.leverage)+chips('lv',[1,2,3,5,10],'×')
-       +'<div class="cfnote">Both legs carry the same notional and the same leverage &mdash; that is what keeps the round delta-neutral. A higher cap is permission, not saved margin: the same safety needs roughly the same collateral at 3&times; and at 10&times;.</div>'))
-   +tab('advanced',
-     grp('Capital',fi("cv","Variational capital $",st.capital_v)+fi("cm","Ethereal capital $",st.capital_m))
-     +grp('Margin per leg',fi("ml","Margin per leg $",st.margin_per_leg)+chips('ml',[250,500,1000,2000]))
-     +grp('Wallet','<div class="field" style="flex:1;min-width:240px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>'))
+   +tab('cfg',
+     grp('Strategy',
+       fs("md","Mode",'<option value="pair"'+(d.mode==="pair"?" selected":"")+'>pair (BTC/ETH cross)</option><option value="same"'+(d.mode==="same"?" selected":"")+'>same-asset (1 symbol, 2 venues)</option>')
+       +'<div class="field sel hasico">'+ico('sa')+'<select id="sa" onchange="syncFieldIcons()">'
+         +assetOpts(vaNev,vbNev,d.same?d.same.asset:(st.same_asset||"ENA"))+'</select><label>Asset</label></div>')
+     +grp('Venues',
+       '<div class="field sel hasico">'+ico('sva')+'<select id="sva" onchange="refreshAssetSel();syncFieldIcons()">'+vopt(vaNev)+'</select><label>Cross venue A</label></div>'
+       +'<div class="field sel hasico">'+ico('svb')+'<select id="svb" onchange="refreshAssetSel();syncFieldIcons()">'+vopt(vbNev)+'</select><label>Cross venue B</label></div>'
+       // A két tőkemező CÍMKÉJE eddig „Variational” és „Ethereal” volt, akkor is, ha a
+       // kereszt rég Variational↔Aster — a szám jó volt, a felirat hazudott. Most a
+       // ténylegesen választott venue nevét viseli.
+       +fi("cv","Capital on "+vaNev+" $",st.capital_v)+fi("cm","Capital on "+vbNev+" $",st.capital_m))
+     +grp('Sizing',
+       fi("ml","Margin per leg $",st.margin_per_leg)+chips('ml',[250,500,1000,2000])
+       +fi("lv","Leverage",st.leverage)+chips('lv',[1,2,3,5,10],'×')
+       +'<div class="cfnote">Both legs carry the same notional and the same leverage &mdash; that is what keeps the round delta-neutral. A higher cap is permission, not saved margin: the same safety needs roughly the same collateral at 3&times; and at 10&times;.</div>')
+     +grp('Wallet','<div class="field" style="flex:1 1 320px"><input id="wal" placeholder=" " value="'+(st.wallet||"")+'"><label>Wallet address (read-only, for position checks)</label></div>'))
    +tab('alerts',alertBlock(st.alerts||{}))
-   +tab('notes',
-     grp('Notes','<div class="field" style="flex:1;min-width:260px"><textarea id="cfnote" rows="5" placeholder=" ">'+String(st.note||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</textarea><label>Notes on this cross</label></div>')
-     +'<div class="cfnote">Why you took this cross, what you are waiting for, what went wrong last time. It is saved with the configuration, so it survives a reload &mdash; the round&rsquo;s <i>result</i> still belongs in <b>History</b>.</div>')
    +'<button class="accent" onclick="saveSettings()">Save</button>'
   cfTab(_cfTab)
+  syncFieldIcons()
   // Az összefoglaló: ugyanaz négy számban, amit az űrlap nyolc mezőben mond.
   // Becsukva ez marad látható, nyitva pedig fölösleges görgetés nélkül ellenőrizhető.
   const cs=document.getElementById("cfgsum")

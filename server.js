@@ -1443,7 +1443,7 @@ function buildPayload() {
       const n = Object.values(v || {}).filter((x) => x && x.vol !== 0 && x.apr != null).length
       return [k, { live: n > 0, listings: n }]
     })),
-    state: { active_config: active, entry_price_btc: cfg.entry_price_btc, entry_price_eth: cfg.entry_price_eth, entry_price_asset: cfg.entry_price_asset, capital_v: capV, capital_m: capM, margin_per_leg: marginLeg, leverage: lev, same_asset: cfg.same_asset, same_va: cfg.same_va, same_vb: cfg.same_vb, wallet: cfg.wallet || '', note: cfg.note || '', alerts: alertPrefs(cfg) },
+    state: { active_config: active, entry_price_btc: cfg.entry_price_btc, entry_price_eth: cfg.entry_price_eth, entry_price_asset: cfg.entry_price_asset, capital_v: capV, capital_m: capM, margin_per_leg: marginLeg, leverage: lev, same_asset: cfg.same_asset, same_va: cfg.same_va, same_vb: cfg.same_vb, wallet: cfg.wallet || '', alerts: alertPrefs(cfg) },
     rebalance: reb, alerts, live: reconcile(cfg),
     tick: { legs: tickLegs, asset: tickAsset },
   }
@@ -1861,10 +1861,6 @@ async function handleReq(req, res) {
       if (VENUE_OPTS.includes(b.same_vb)) cfg.same_vb = b.same_vb
       // tárcacím: üresen hagyva kikapcsolja a pozíció-tükröt; csak érvényes címet fogadunk el
       if (typeof b.wallet === 'string') { const w = b.wallet.trim(); if (w === '' || /^0x[0-9a-fA-F]{40}$/.test(w)) cfg.wallet = w }
-      // Szabad szoveges jegyzet a kereszthez. 2000 karakterre vagva: a kor EREDMENYE
-      // a naploba valo, ez csak a „miert ezt es mire varok” — ha ennel hosszabb, az
-      // mar naplobejegyzes.
-      if (typeof b.note === 'string') cfg.note = b.note.slice(0, 2000)
       // Riasztást csak belépett felhasználó állíthat: név nélkül nincs kinek küldeni.
       if (b.alerts && typeof b.alerts === 'object' && currentUid()) cfg.alerts = alertClean(b.alerts)
       saveCfg(cfg); json({ ok: true })
